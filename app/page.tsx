@@ -22,6 +22,13 @@ type Profile = {
   avatar_url: string | null;
 };
 
+type NotificationInsert = {
+  user_id: string;
+  actor_user_id: string;
+  type: "like" | "reply" | "follow";
+  post_id: number | null;
+};
+
 export default function Home() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [profiles, setProfiles] = useState<Record<string, Profile>>({});
@@ -35,6 +42,7 @@ export default function Home() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
 
   const maxLength = 140;
   const remaining = useMemo(() => maxLength - text.length, [text]);
@@ -64,6 +72,47 @@ export default function Home() {
 
     return map;
   }, [posts]);
+
+  const fetchUnreadNotifications = async (currentUserId?: string | null) => {
+    if (!currentUserId) {
+      setUnreadNotifications(0);
+      return;
+    }
+
+    const { count, error } = await supabase
+      .from("notifications")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", currentUserId)
+      .eq("is_read", false);
+
+    if (error) {
+      console.error(error);
+      setUnreadNotifications(0);
+      return;
+    }
+
+    setUnreadNotifications(count ?? 0);
+  };
+
+  const createNotification = async ({
+    user_id,
+    actor_user_id,
+    type,
+    post_id,
+  }: NotificationInsert) => {
+    if (user_id === actor_user_id) return;
+
+    const { error } = await supabase.from("notifications").insert({
+      user_id,
+      actor_user_id,
+      type,
+      post_id,
+    });
+
+    if (error) {
+      console.error("通知作成失敗:", error.message);
+    }
+  };
 
   const fetchPostsAndProfiles = async (currentUserId?: string | null) => {
     setLoading(true);
@@ -99,6 +148,7 @@ export default function Home() {
 
       if (userIds.length === 0) {
         setProfiles({});
+        await fetchUnreadNotifications(currentUserId);
         return;
       }
 
@@ -110,16 +160,17 @@ export default function Home() {
       if (profileError) {
         console.error(profileError);
         setProfiles({});
-        return;
+      } else {
+        const profileMap: Record<string, Profile> = {};
+
+        for (const profile of profileData ?? []) {
+          profileMap[profile.user_id] = profile;
+        }
+
+        setProfiles(profileMap);
       }
 
-      const profileMap: Record<string, Profile> = {};
-
-      for (const profile of profileData ?? []) {
-        profileMap[profile.user_id] = profile;
-      }
-
-      setProfiles(profileMap);
+      await fetchUnreadNotifications(currentUserId);
     } catch (error) {
       console.error(error);
       setPosts([]);
@@ -257,6 +308,11 @@ export default function Home() {
         imageUrl = await uploadPostImage();
       }
 
+      const replyTarget =
+        replyingToId !== null
+          ? posts.find((post) => post.id === replyingToId) ?? null
+          : null;
+
       const { data, error } = await supabase
         .from("posts")
         .insert([
@@ -280,6 +336,19 @@ export default function Home() {
 
       if (data) {
         setPosts((prev) => [data as Post, ...prev]);
+
+        if (
+          replyingToId !== null &&
+          replyTarget?.user_id &&
+          replyTarget.user_id !== userId
+        ) {
+          await createNotification({
+            user_id: replyTarget.user_id,
+            actor_user_id: userId,
+            type: "reply",
+            post_id: replyTarget.id,
+          });
+        }
       }
 
       resetComposer();
@@ -291,11 +360,16 @@ export default function Home() {
     }
   };
 
-  const handleLike = async (id: number, currentLikes: number) => {
+  const handleLike = async (post: Post) => {
+    if (!userId) {
+      alert("いいねするにはログインしてね");
+      return;
+    }
+
     const { error } = await supabase
       .from("posts")
-      .update({ likes: currentLikes + 1 })
-      .eq("id", id);
+      .update({ likes: post.likes + 1 })
+      .eq("id", post.id);
 
     if (error) {
       alert("いいね失敗: " + error.message);
@@ -303,10 +377,19 @@ export default function Home() {
     }
 
     setPosts((prev) =>
-      prev.map((post) =>
-        post.id === id ? { ...post, likes: currentLikes + 1 } : post
+      prev.map((item) =>
+        item.id === post.id ? { ...item, likes: post.likes + 1 } : item
       )
     );
+
+    if (post.user_id && post.user_id !== userId) {
+      await createNotification({
+        user_id: post.user_id,
+        actor_user_id: userId,
+        type: "like",
+        post_id: post.id,
+      });
+    }
   };
 
   const handleDelete = async (post: Post) => {
@@ -375,6 +458,7 @@ export default function Home() {
     setUserId(null);
     resetComposer();
     setProfiles({});
+    setUnreadNotifications(0);
     await fetchPostsAndProfiles(null);
     alert("ログアウトしたよ");
   };
@@ -542,7 +626,7 @@ export default function Home() {
 
           <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
             <button
-              onClick={() => handleLike(post.id, post.likes)}
+              onClick={() => handleLike(post)}
               style={{
                 background: "transparent",
                 color: "#8899a6",
@@ -672,16 +756,50 @@ export default function Home() {
               Kazuki SNS
             </span>
 
-            <Link
-              href="/profile"
-              style={{
-                color: "#1d9bf0",
-                textDecoration: "none",
-                fontSize: "14px",
-              }}
-            >
-              プロフィール
-            </Link>
+            <div style={{ display: "flex", gap: "14px", alignItems: "center" }}>
+              <Link
+                href="/notifications"
+                style={{
+                  color: "#1d9bf0",
+                  textDecoration: "none",
+                  fontSize: "14px",
+                  position: "relative",
+                }}
+              >
+                通知
+                {unreadNotifications > 0 && (
+                  <span
+                    style={{
+                      marginLeft: "6px",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      minWidth: "20px",
+                      height: "20px",
+                      padding: "0 6px",
+                      borderRadius: "9999px",
+                      background: "#ff4d4f",
+                      color: "white",
+                      fontSize: "12px",
+                      fontWeight: "bold",
+                    }}
+                  >
+                    {unreadNotifications}
+                  </span>
+                )}
+              </Link>
+
+              <Link
+                href="/profile"
+                style={{
+                  color: "#1d9bf0",
+                  textDecoration: "none",
+                  fontSize: "14px",
+                }}
+              >
+                プロフィール
+              </Link>
+            </div>
           </div>
 
           <div

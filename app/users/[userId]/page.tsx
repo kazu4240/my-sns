@@ -146,6 +146,21 @@ export default function UserProfilePage({
     loadUserPage();
   }, [userId]);
 
+  const createFollowNotification = async () => {
+    if (!currentUserId || currentUserId === userId) return;
+
+    const { error } = await supabase.from("notifications").insert({
+      user_id: userId,
+      actor_user_id: currentUserId,
+      type: "follow",
+      post_id: null,
+    });
+
+    if (error) {
+      console.error("フォロー通知失敗:", error.message);
+    }
+  };
+
   const handleFollowToggle = async () => {
     if (!currentUserId) {
       alert("フォローするにはログインしてね");
@@ -186,6 +201,7 @@ export default function UserProfilePage({
           return;
         }
 
+        await createFollowNotification();
         setIsFollowing(true);
         setFollowersCount((prev) => prev + 1);
       }
