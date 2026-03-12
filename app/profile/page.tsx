@@ -153,17 +153,41 @@ export default function ProfilePage() {
 
     setSaving(true);
 
-    const { error } = await supabase.from("profiles").upsert(
-      {
+    const { data: existingProfile, error: checkError } = await supabase
+      .from("profiles")
+      .select("user_id")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (checkError) {
+      setSaving(false);
+      alert("確認失敗: " + checkError.message);
+      return;
+    }
+
+    let error: { message: string } | null = null;
+
+    if (existingProfile) {
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({
+          display_name: displayName,
+          bio,
+          avatar_url: avatarUrl,
+        })
+        .eq("user_id", userId);
+
+      error = updateError;
+    } else {
+      const { error: insertError } = await supabase.from("profiles").insert({
         user_id: userId,
         display_name: displayName,
         bio,
         avatar_url: avatarUrl,
-      },
-      {
-        onConflict: "user_id",
-      }
-    );
+      });
+
+      error = insertError;
+    }
 
     setSaving(false);
 
