@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 
 type Post = {
@@ -11,6 +11,7 @@ type Post = {
   likes: number;
   user_id: string | null;
   user_email: string | null;
+  image_url: string | null;
 };
 
 type Profile = {
@@ -24,6 +25,8 @@ export default function Home() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [profiles, setProfiles] = useState<Record<string, Profile>>({});
   const [text, setText] = useState("");
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -130,13 +133,52 @@ export default function Home() {
     init();
   }, []);
 
+  const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null;
+
+    setSelectedImage(file);
+
+    if (file) {
+      const objectUrl = URL.createObjectURL(file);
+      setPreviewUrl(objectUrl);
+    } else {
+      setPreviewUrl("");
+    }
+  };
+
+  const clearImage = () => {
+    setSelectedImage(null);
+    setPreviewUrl("");
+  };
+
+  const uploadPostImage = async () => {
+    if (!selectedImage || !userId) return null;
+
+    const fileExt = selectedImage.name.split(".").pop() || "png";
+    const filePath = `${userId}/${Date.now()}.${fileExt}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("post-images")
+      .upload(filePath, selectedImage, {
+        upsert: true,
+      });
+
+    if (uploadError) {
+      throw new Error(uploadError.message);
+    }
+
+    const { data } = supabase.storage.from("post-images").getPublicUrl(filePath);
+
+    return data.publicUrl;
+  };
+
   const handlePost = async () => {
     if (!userEmail || !userId) {
       alert("投稿するにはログインしてね");
       return;
     }
 
-    if (!text.trim()) return;
+    if (!text.trim() && !selectedImage) return;
     if (text.length > maxLength) return;
 
     setSubmitting(true);
@@ -174,6 +216,12 @@ export default function Home() {
         return;
       }
 
+      let imageUrl: string | null = null;
+
+      if (selectedImage) {
+        imageUrl = await uploadPostImage();
+      }
+
       const { data, error } = await supabase
         .from("posts")
         .insert([
@@ -182,6 +230,7 @@ export default function Home() {
             likes: 0,
             user_id: userId,
             user_email: userEmail,
+            image_url: imageUrl,
           },
         ])
         .select()
@@ -198,6 +247,8 @@ export default function Home() {
       }
 
       setText("");
+      setSelectedImage(null);
+      setPreviewUrl("");
     } catch (error) {
       console.error(error);
       alert("投稿失敗");
@@ -256,11 +307,15 @@ export default function Home() {
 
     setEditingId(post.id);
     setText(post.content);
+    setSelectedImage(null);
+    setPreviewUrl("");
   };
 
   const handleCancelEdit = () => {
     setEditingId(null);
     setText("");
+    setSelectedImage(null);
+    setPreviewUrl("");
   };
 
   const handleLogout = async () => {
@@ -275,6 +330,8 @@ export default function Home() {
     setUserId(null);
     setEditingId(null);
     setText("");
+    setSelectedImage(null);
+    setPreviewUrl("");
     setProfiles({});
     await fetchPostsAndProfiles(null);
     alert("ログアウトしたよ");
@@ -520,6 +577,64 @@ export default function Home() {
                 }}
               />
 
+              {previewUrl && (
+                <div
+                  style={{
+                    marginTop: "12px",
+                    border: "1px solid #2f3336",
+                    borderRadius: "16px",
+                    overflow: "hidden",
+                    maxWidth: "100%",
+                  }}
+                >
+                  <img
+                    src={previewUrl}
+                    alt="preview"
+                    style={{
+                      width: "100%",
+                      maxHeight: "360px",
+                      objectFit: "cover",
+                      display: "block",
+                    }}
+                  />
+                </div>
+              )}
+
+              {editingId === null && (
+                <div style={{ marginTop: "12px" }}>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageChange}
+                    disabled={!userEmail || submitting}
+                    style={{
+                      color: "white",
+                      fontSize: "14px",
+                    }}
+                  />
+
+                  {selectedImage && (
+                    <div style={{ marginTop: "8px" }}>
+                      <button
+                        onClick={clearImage}
+                        type="button"
+                        style={{
+                          background: "transparent",
+                          color: "#ff6b6b",
+                          border: "1px solid #2f3336",
+                          padding: "8px 14px",
+                          borderRadius: "9999px",
+                          cursor: "pointer",
+                          fontSize: "14px",
+                        }}
+                      >
+                        画像を外す
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div
                 style={{
                   display: "flex",
@@ -559,10 +674,18 @@ export default function Home() {
 
                   <button
                     onClick={handlePost}
-                    disabled={!userEmail || !text.trim() || remaining < 0 || submitting}
+                    disabled={
+                      !userEmail ||
+                      (!text.trim() && !selectedImage) ||
+                      remaining < 0 ||
+                      submitting
+                    }
                     style={{
                       background:
-                        !userEmail || !text.trim() || remaining < 0 || submitting
+                        !userEmail ||
+                        (!text.trim() && !selectedImage) ||
+                        remaining < 0 ||
+                        submitting
                           ? "#375a7f"
                           : "#1d9bf0",
                       color: "white",
@@ -572,7 +695,10 @@ export default function Home() {
                       fontSize: "15px",
                       fontWeight: "bold",
                       cursor:
-                        !userEmail || !text.trim() || remaining < 0 || submitting
+                        !userEmail ||
+                        (!text.trim() && !selectedImage) ||
+                        remaining < 0 ||
+                        submitting
                           ? "not-allowed"
                           : "pointer",
                     }}
@@ -686,11 +812,33 @@ export default function Home() {
                         lineHeight: 1.6,
                         whiteSpace: "pre-wrap",
                         margin: 0,
-                        marginBottom: "14px",
+                        marginBottom: post.image_url ? "12px" : "14px",
                       }}
                     >
                       {post.content}
                     </p>
+
+                    {post.image_url && (
+                      <div
+                        style={{
+                          marginBottom: "14px",
+                          border: "1px solid #2f3336",
+                          borderRadius: "16px",
+                          overflow: "hidden",
+                        }}
+                      >
+                        <img
+                          src={post.image_url}
+                          alt="post image"
+                          style={{
+                            width: "100%",
+                            maxHeight: "420px",
+                            objectFit: "cover",
+                            display: "block",
+                          }}
+                        />
+                      </div>
+                    )}
 
                     <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
                       <button
