@@ -30,9 +30,14 @@ export default function UserProfilePage({
   const { userId } = use(params);
 
   const [loading, setLoading] = useState(true);
+  const [followLoading, setFollowLoading] = useState(false);
   const [posts, setPosts] = useState<Post[]>([]);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followersCount, setFollowersCount] = useState(0);
+  const [followingCount, setFollowingCount] = useState(0);
   const [errorMessage, setErrorMessage] = useState("");
 
   const loadUserPage = async () => {
@@ -40,7 +45,25 @@ export default function UserProfilePage({
     setErrorMessage("");
 
     try {
-      const [profileResult, postsResult] = await Promise.all([
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
+
+      if (authError) {
+        console.error(authError);
+      }
+
+      const signedInUserId = user?.id ?? null;
+      setCurrentUserId(signedInUserId);
+
+      const [
+        profileResult,
+        postsResult,
+        followersResult,
+        followingResult,
+        myFollowResult,
+      ] = await Promise.all([
         supabase
           .from("profiles")
           .select("user_id, display_name, bio, avatar_url")
@@ -53,6 +76,22 @@ export default function UserProfilePage({
           .is("parent_id", null)
           .order("created_at", { ascending: false })
           .limit(20),
+        supabase
+          .from("follows")
+          .select("*", { count: "exact", head: true })
+          .eq("following_user_id", userId),
+        supabase
+          .from("follows")
+          .select("*", { count: "exact", head: true })
+          .eq("follower_user_id", userId),
+        signedInUserId
+          ? supabase
+              .from("follows")
+              .select("id")
+              .eq("follower_user_id", signedInUserId)
+              .eq("following_user_id", userId)
+              .maybeSingle()
+          : Promise.resolve({ data: null, error: null }),
       ]);
 
       if (profileResult.error) {
@@ -61,6 +100,18 @@ export default function UserProfilePage({
 
       if (postsResult.error) {
         throw new Error(postsResult.error.message);
+      }
+
+      if ("error" in followersResult && followersResult.error) {
+        console.error(followersResult.error);
+      }
+
+      if ("error" in followingResult && followingResult.error) {
+        console.error(followingResult.error);
+      }
+
+      if ("error" in myFollowResult && myFollowResult.error) {
+        console.error(myFollowResult.error);
       }
 
       setProfile((profileResult.data as Profile | null) ?? null);
@@ -73,12 +124,19 @@ export default function UserProfilePage({
       } else {
         setUserEmail(null);
       }
+
+      setFollowersCount(followersResult.count ?? 0);
+      setFollowingCount(followingResult.count ?? 0);
+      setIsFollowing(!!myFollowResult.data);
     } catch (error) {
       console.error(error);
       setErrorMessage("プロフィールの読み込みに失敗しました。");
       setPosts([]);
       setProfile(null);
       setUserEmail(null);
+      setFollowersCount(0);
+      setFollowingCount(0);
+      setIsFollowing(false);
     } finally {
       setLoading(false);
     }
@@ -87,6 +145,57 @@ export default function UserProfilePage({
   useEffect(() => {
     loadUserPage();
   }, [userId]);
+
+  const handleFollowToggle = async () => {
+    if (!currentUserId) {
+      alert("フォローするにはログインしてね");
+      return;
+    }
+
+    if (currentUserId === userId) {
+      return;
+    }
+
+    setFollowLoading(true);
+
+    try {
+      if (isFollowing) {
+        const { error } = await supabase
+          .from("follows")
+          .delete()
+          .eq("follower_user_id", currentUserId)
+          .eq("following_user_id", userId);
+
+        if (error) {
+          alert("フォロー解除失敗: " + error.message);
+          setFollowLoading(false);
+          return;
+        }
+
+        setIsFollowing(false);
+        setFollowersCount((prev) => Math.max(0, prev - 1));
+      } else {
+        const { error } = await supabase.from("follows").insert({
+          follower_user_id: currentUserId,
+          following_user_id: userId,
+        });
+
+        if (error) {
+          alert("フォロー失敗: " + error.message);
+          setFollowLoading(false);
+          return;
+        }
+
+        setIsFollowing(true);
+        setFollowersCount((prev) => prev + 1);
+      }
+    } catch (error) {
+      console.error(error);
+      alert("フォロー処理失敗");
+    } finally {
+      setFollowLoading(false);
+    }
+  };
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -105,6 +214,7 @@ export default function UserProfilePage({
   const shownId = userEmail?.split("@")[0] || "user";
   const shownBio = profile?.bio || "自己紹介はまだありません。";
   const shownAvatarUrl = profile?.avatar_url || null;
+  const isMyPage = !!currentUserId && currentUserId === userId;
 
   return (
     <main
@@ -235,6 +345,7 @@ export default function UserProfilePage({
           <p
             style={{
               margin: 0,
+              marginBottom: "16px",
               fontSize: "16px",
               lineHeight: 1.7,
               whiteSpace: "pre-wrap",
@@ -242,6 +353,47 @@ export default function UserProfilePage({
           >
             {shownBio}
           </p>
+
+          <div
+            style={{
+              display: "flex",
+              gap: "18px",
+              flexWrap: "wrap",
+              marginBottom: "16px",
+              color: "#cfd9de",
+              fontSize: "14px",
+            }}
+          >
+            <span>
+              <strong>{followersCount}</strong> フォロワー
+            </span>
+            <span>
+              <strong>{followingCount}</strong> フォロー中
+            </span>
+          </div>
+
+          {!isMyPage && (
+            <button
+              onClick={handleFollowToggle}
+              disabled={followLoading}
+              style={{
+                background: isFollowing ? "#22303c" : "#1d9bf0",
+                color: "white",
+                border: isFollowing ? "1px solid #2f3336" : "none",
+                padding: "10px 18px",
+                borderRadius: "9999px",
+                fontSize: "15px",
+                fontWeight: "bold",
+                cursor: followLoading ? "not-allowed" : "pointer",
+              }}
+            >
+              {followLoading
+                ? "処理中..."
+                : isFollowing
+                ? "フォロー中"
+                : "フォロー"}
+            </button>
+          )}
         </section>
 
         <section
