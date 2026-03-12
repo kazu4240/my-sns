@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { ChangeEvent, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 
 type Post = {
@@ -23,8 +22,6 @@ type Profile = {
 };
 
 export default function ProfilePage() {
-  const router = useRouter();
-
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -38,6 +35,8 @@ export default function ProfilePage() {
   const [avatarUrl, setAvatarUrl] = useState("");
 
   const loadPage = async () => {
+    setLoading(true);
+
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -47,15 +46,22 @@ export default function ProfilePage() {
 
     if (!user?.id) {
       setPosts([]);
+      setDisplayName("");
+      setBio("");
+      setAvatarUrl("");
       setLoading(false);
       return;
     }
 
-    const { data: profileData } = await supabase
+    const { data: profileData, error: profileError } = await supabase
       .from("profiles")
       .select("*")
       .eq("user_id", user.id)
       .maybeSingle();
+
+    if (profileError) {
+      console.error(profileError);
+    }
 
     if (profileData) {
       const profile = profileData as Profile;
@@ -75,8 +81,11 @@ export default function ProfilePage() {
       .order("created_at", { ascending: false })
       .limit(20);
 
-    if (!postsError && postsData) {
-      setPosts(postsData);
+    if (postsError) {
+      console.error(postsError);
+      setPosts([]);
+    } else {
+      setPosts(postsData ?? []);
     }
 
     setLoading(false);
@@ -127,8 +136,6 @@ export default function ProfilePage() {
       const { data } = supabase.storage.from("avatars").getPublicUrl(filePath);
 
       setAvatarUrl(data.publicUrl);
-      await loadPage();
-      router.refresh();
       alert("画像アップロードできた！");
     } catch (error) {
       console.error(error);
@@ -146,14 +153,17 @@ export default function ProfilePage() {
 
     setSaving(true);
 
-    const { error } = await supabase.from("profiles").upsert([
+    const { error } = await supabase.from("profiles").upsert(
       {
         user_id: userId,
         display_name: displayName,
-        bio: bio,
+        bio,
         avatar_url: avatarUrl,
       },
-    ]);
+      {
+        onConflict: "user_id",
+      }
+    );
 
     setSaving(false);
 
@@ -161,7 +171,6 @@ export default function ProfilePage() {
       alert("保存失敗: " + error.message);
     } else {
       await loadPage();
-      router.refresh();
       alert("プロフィール保存できた！");
     }
   };
