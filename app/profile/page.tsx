@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { ChangeEvent, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 
 type Post = {
@@ -22,6 +23,8 @@ type Profile = {
 };
 
 export default function ProfilePage() {
+  const router = useRouter();
+
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -69,7 +72,8 @@ export default function ProfilePage() {
       .from("posts")
       .select("*")
       .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .limit(20);
 
     if (!postsError && postsData) {
       setPosts(postsData);
@@ -123,6 +127,8 @@ export default function ProfilePage() {
       const { data } = supabase.storage.from("avatars").getPublicUrl(filePath);
 
       setAvatarUrl(data.publicUrl);
+      await loadPage();
+      router.refresh();
       alert("画像アップロードできた！");
     } catch (error) {
       console.error(error);
@@ -154,8 +160,9 @@ export default function ProfilePage() {
     if (error) {
       alert("保存失敗: " + error.message);
     } else {
+      await loadPage();
+      router.refresh();
       alert("プロフィール保存できた！");
-      loadPage();
     }
   };
 
