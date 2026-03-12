@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ChangeEvent, useEffect, useState } from "react";
+import { ChangeEvent, useEffect, useRef, useState } from "react";
 import { supabase } from "../../lib/supabase";
 
 type Post = {
@@ -34,12 +34,19 @@ export default function ProfilePage() {
   const [bio, setBio] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
 
+  const initializedRef = useRef(false);
+
   const loadPage = async () => {
     setLoading(true);
 
     const {
       data: { user },
+      error: userError,
     } = await supabase.auth.getUser();
+
+    if (userError) {
+      console.error(userError);
+    }
 
     setUserEmail(user?.email ?? null);
     setUserId(user?.id ?? null);
@@ -53,11 +60,18 @@ export default function ProfilePage() {
       return;
     }
 
-    const { data: profileData, error: profileError } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("user_id", user.id)
-      .maybeSingle();
+    const [profileResult, postsResult] = await Promise.all([
+      supabase.from("profiles").select("*").eq("user_id", user.id).maybeSingle(),
+      supabase
+        .from("posts")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(10),
+    ]);
+
+    const { data: profileData, error: profileError } = profileResult;
+    const { data: postsData, error: postsError } = postsResult;
 
     if (profileError) {
       console.error(profileError);
@@ -74,13 +88,6 @@ export default function ProfilePage() {
       setAvatarUrl("");
     }
 
-    const { data: postsData, error: postsError } = await supabase
-      .from("posts")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(20);
-
     if (postsError) {
       console.error(postsError);
       setPosts([]);
@@ -92,12 +99,17 @@ export default function ProfilePage() {
   };
 
   useEffect(() => {
+    if (initializedRef.current) return;
+    initializedRef.current = true;
+
     loadPage();
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(() => {
-      loadPage();
+    } = supabase.auth.onAuthStateChange((_event) => {
+      if (_event === "SIGNED_IN" || _event === "SIGNED_OUT") {
+        loadPage();
+      }
     });
 
     return () => {
