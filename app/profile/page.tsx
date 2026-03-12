@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { ChangeEvent, useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 
 type Post = {
@@ -25,6 +25,7 @@ export default function ProfilePage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
@@ -90,6 +91,46 @@ export default function ProfilePage() {
       subscription.unsubscribe();
     };
   }, []);
+
+  const handleAvatarUpload = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+
+    if (!file) return;
+
+    if (!userId) {
+      alert("ログインしてね");
+      return;
+    }
+
+    setUploading(true);
+
+    try {
+      const fileExt = file.name.split(".").pop() || "png";
+      const filePath = `${userId}/${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("avatars")
+        .upload(filePath, file, {
+          upsert: true,
+        });
+
+      if (uploadError) {
+        alert("画像アップロード失敗: " + uploadError.message);
+        setUploading(false);
+        return;
+      }
+
+      const { data } = supabase.storage.from("avatars").getPublicUrl(filePath);
+
+      setAvatarUrl(data.publicUrl);
+      alert("画像アップロードできた！");
+    } catch (error) {
+      console.error(error);
+      alert("画像アップロード失敗");
+    }
+
+    setUploading(false);
+  };
 
   const handleSaveProfile = async () => {
     if (!userId) {
@@ -338,21 +379,57 @@ export default function ProfilePage() {
                 }}
               />
 
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "8px",
+                  padding: "14px",
+                  borderRadius: "12px",
+                  border: "1px solid #2f3336",
+                  background: "#192734",
+                }}
+              >
+                <label style={{ fontSize: "14px", color: "#8899a6" }}>
+                  画像ファイルからアップロード
+                </label>
+
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleAvatarUpload}
+                  disabled={uploading}
+                  style={{
+                    color: "white",
+                    fontSize: "14px",
+                  }}
+                />
+
+                <span
+                  style={{
+                    fontSize: "13px",
+                    color: "#8899a6",
+                  }}
+                >
+                  {uploading ? "アップロード中..." : "画像を選ぶとアップロードされる"}
+                </span>
+              </div>
+
               <button
                 onClick={handleSaveProfile}
-                disabled={saving}
+                disabled={saving || uploading}
                 style={{
                   alignSelf: "flex-start",
-                  background: saving ? "#375a7f" : "#1d9bf0",
+                  background: saving || uploading ? "#375a7f" : "#1d9bf0",
                   color: "white",
                   border: "none",
                   padding: "12px 20px",
                   borderRadius: "9999px",
                   fontWeight: "bold",
-                  cursor: saving ? "not-allowed" : "pointer",
+                  cursor: saving || uploading ? "not-allowed" : "pointer",
                 }}
               >
-                {saving ? "保存中..." : "保存"}
+                {saving ? "保存中..." : uploading ? "アップロード中..." : "保存"}
               </button>
             </div>
           )}
