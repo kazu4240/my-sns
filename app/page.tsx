@@ -425,6 +425,7 @@ export default function Home() {
   const renderPostCard = (post: Post, isReply = false) => {
     const isOwner = !!userId && post.user_id === userId;
     const replies = repliesByParent[post.id] ?? [];
+    const profileHref = post.user_id ? `/users/${post.user_id}` : "/profile";
 
     return (
       <article
@@ -438,21 +439,23 @@ export default function Home() {
         }}
       >
         {getAvatarUrl(post) ? (
-          <img
-            src={getAvatarUrl(post)!}
-            alt="avatar"
-            style={{
-              width: isReply ? "40px" : "48px",
-              height: isReply ? "40px" : "48px",
-              borderRadius: "9999px",
-              objectFit: "cover",
-              flexShrink: 0,
-              border: "1px solid #2f3336",
-            }}
-          />
+          <Link href={profileHref}>
+            <img
+              src={getAvatarUrl(post)!}
+              alt="avatar"
+              style={{
+                width: isReply ? "40px" : "48px",
+                height: isReply ? "40px" : "48px",
+                borderRadius: "9999px",
+                objectFit: "cover",
+                flexShrink: 0,
+                border: "1px solid #2f3336",
+              }}
+            />
+          </Link>
         ) : (
           <Link
-            href="/profile"
+            href={profileHref}
             style={{
               width: isReply ? "40px" : "48px",
               height: isReply ? "40px" : "48px",
@@ -482,7 +485,7 @@ export default function Home() {
             }}
           >
             <Link
-              href="/profile"
+              href={profileHref}
               style={{
                 fontWeight: "bold",
                 color: "white",
