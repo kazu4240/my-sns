@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { use, useEffect, useState } from "react";
 import { supabase } from "../../../lib/supabase";
 
 type Post = {
@@ -25,8 +25,10 @@ type Profile = {
 export default function UserProfilePage({
   params,
 }: {
-  params: { userId: string };
+  params: Promise<{ userId: string }>;
 }) {
+  const { userId } = use(params);
+
   const [loading, setLoading] = useState(true);
   const [posts, setPosts] = useState<Post[]>([]);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -38,18 +40,16 @@ export default function UserProfilePage({
     setErrorMessage("");
 
     try {
-      const targetUserId = params.userId;
-
       const [profileResult, postsResult] = await Promise.all([
         supabase
           .from("profiles")
           .select("user_id, display_name, bio, avatar_url")
-          .eq("user_id", targetUserId)
+          .eq("user_id", userId)
           .maybeSingle(),
         supabase
           .from("posts")
           .select("*")
-          .eq("user_id", targetUserId)
+          .eq("user_id", userId)
           .is("parent_id", null)
           .order("created_at", { ascending: false })
           .limit(20),
@@ -86,7 +86,7 @@ export default function UserProfilePage({
 
   useEffect(() => {
     loadUserPage();
-  }, [params.userId]);
+  }, [userId]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
