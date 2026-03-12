@@ -12,6 +12,7 @@ type Post = {
   user_id: string | null;
   user_email: string | null;
   image_url: string | null;
+  parent_id: number | null;
 };
 
 type Profile = {
@@ -30,12 +31,39 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [replyingToId, setReplyingToId] = useState<number | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
 
   const maxLength = 140;
   const remaining = useMemo(() => maxLength - text.length, [text]);
+
+  const rootPosts = useMemo(() => {
+    return posts.filter((post) => post.parent_id === null);
+  }, [posts]);
+
+  const repliesByParent = useMemo(() => {
+    const map: Record<number, Post[]> = {};
+
+    for (const post of posts) {
+      if (post.parent_id !== null) {
+        if (!map[post.parent_id]) {
+          map[post.parent_id] = [];
+        }
+        map[post.parent_id].push(post);
+      }
+    }
+
+    for (const key of Object.keys(map)) {
+      map[Number(key)].sort(
+        (a, b) =>
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      );
+    }
+
+    return map;
+  }, [posts]);
 
   const fetchPostsAndProfiles = async (currentUserId?: string | null) => {
     setLoading(true);
@@ -46,7 +74,7 @@ export default function Home() {
         .from("posts")
         .select("*")
         .order("created_at", { ascending: false })
-        .limit(20);
+        .limit(50);
 
       if (error) {
         throw new Error(error.message);
@@ -172,6 +200,14 @@ export default function Home() {
     return data.publicUrl;
   };
 
+  const resetComposer = () => {
+    setText("");
+    setSelectedImage(null);
+    setPreviewUrl("");
+    setEditingId(null);
+    setReplyingToId(null);
+  };
+
   const handlePost = async () => {
     if (!userEmail || !userId) {
       alert("投稿するにはログインしてね");
@@ -210,8 +246,7 @@ export default function Home() {
           )
         );
 
-        setText("");
-        setEditingId(null);
+        resetComposer();
         setSubmitting(false);
         return;
       }
@@ -231,6 +266,7 @@ export default function Home() {
             user_id: userId,
             user_email: userEmail,
             image_url: imageUrl,
+            parent_id: replyingToId,
           },
         ])
         .select()
@@ -246,9 +282,7 @@ export default function Home() {
         setPosts((prev) => [data as Post, ...prev]);
       }
 
-      setText("");
-      setSelectedImage(null);
-      setPreviewUrl("");
+      resetComposer();
     } catch (error) {
       console.error(error);
       alert("投稿失敗");
@@ -293,9 +327,8 @@ export default function Home() {
 
     setPosts((prev) => prev.filter((item) => item.id !== post.id));
 
-    if (editingId === post.id) {
-      setEditingId(null);
-      setText("");
+    if (editingId === post.id || replyingToId === post.id) {
+      resetComposer();
     }
   };
 
@@ -306,16 +339,28 @@ export default function Home() {
     }
 
     setEditingId(post.id);
+    setReplyingToId(null);
     setText(post.content);
     setSelectedImage(null);
     setPreviewUrl("");
   };
 
-  const handleCancelEdit = () => {
+  const handleReply = (post: Post) => {
+    if (!userId) {
+      alert("返信するにはログインしてね");
+      return;
+    }
+
     setEditingId(null);
+    setReplyingToId(post.id);
     setText("");
     setSelectedImage(null);
     setPreviewUrl("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleCancelEdit = () => {
+    resetComposer();
   };
 
   const handleLogout = async () => {
@@ -328,10 +373,7 @@ export default function Home() {
 
     setUserEmail(null);
     setUserId(null);
-    setEditingId(null);
-    setText("");
-    setSelectedImage(null);
-    setPreviewUrl("");
+    resetComposer();
     setProfiles({});
     await fetchPostsAndProfiles(null);
     alert("ログアウトしたよ");
@@ -374,6 +416,210 @@ export default function Home() {
 
   const myAvatarUrl =
     userId && profiles[userId]?.avatar_url ? profiles[userId].avatar_url : null;
+
+  const replyTargetPost =
+    replyingToId !== null
+      ? posts.find((post) => post.id === replyingToId) ?? null
+      : null;
+
+  const renderPostCard = (post: Post, isReply = false) => {
+    const isOwner = !!userId && post.user_id === userId;
+    const replies = repliesByParent[post.id] ?? [];
+
+    return (
+      <article
+        key={post.id}
+        style={{
+          display: "flex",
+          gap: "14px",
+          padding: isReply ? "14px 0 0 0" : "18px 20px",
+          borderBottom: isReply ? "none" : "1px solid #2f3336",
+          marginLeft: isReply ? "20px" : "0",
+        }}
+      >
+        {getAvatarUrl(post) ? (
+          <img
+            src={getAvatarUrl(post)!}
+            alt="avatar"
+            style={{
+              width: isReply ? "40px" : "48px",
+              height: isReply ? "40px" : "48px",
+              borderRadius: "9999px",
+              objectFit: "cover",
+              flexShrink: 0,
+              border: "1px solid #2f3336",
+            }}
+          />
+        ) : (
+          <Link
+            href="/profile"
+            style={{
+              width: isReply ? "40px" : "48px",
+              height: isReply ? "40px" : "48px",
+              borderRadius: "9999px",
+              background: "#1d9bf0",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontWeight: "bold",
+              flexShrink: 0,
+              color: "white",
+              textDecoration: "none",
+            }}
+          >
+            K
+          </Link>
+        )}
+
+        <div style={{ flex: 1 }}>
+          <div
+            style={{
+              display: "flex",
+              gap: "8px",
+              alignItems: "center",
+              marginBottom: "8px",
+              flexWrap: "wrap",
+            }}
+          >
+            <Link
+              href="/profile"
+              style={{
+                fontWeight: "bold",
+                color: "white",
+                textDecoration: "none",
+              }}
+            >
+              {getDisplayName(post)}
+            </Link>
+
+            <span style={{ color: "#8899a6" }}>@{getUsername(post)}</span>
+
+            <span style={{ color: "#8899a6", fontSize: "14px" }}>
+              ・ {formatDate(post.created_at)}
+            </span>
+
+            {isReply && (
+              <span style={{ color: "#1d9bf0", fontSize: "13px" }}>返信</span>
+            )}
+          </div>
+
+          <p
+            style={{
+              fontSize: isReply ? "16px" : "18px",
+              lineHeight: 1.6,
+              whiteSpace: "pre-wrap",
+              margin: 0,
+              marginBottom: post.image_url ? "12px" : "14px",
+            }}
+          >
+            {post.content}
+          </p>
+
+          {post.image_url && (
+            <div
+              style={{
+                marginBottom: "14px",
+                border: "1px solid #2f3336",
+                borderRadius: "16px",
+                overflow: "hidden",
+              }}
+            >
+              <img
+                src={post.image_url}
+                alt="post image"
+                style={{
+                  width: "100%",
+                  maxHeight: "420px",
+                  objectFit: "cover",
+                  display: "block",
+                }}
+              />
+            </div>
+          )}
+
+          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+            <button
+              onClick={() => handleLike(post.id, post.likes)}
+              style={{
+                background: "transparent",
+                color: "#8899a6",
+                border: "1px solid #2f3336",
+                padding: "8px 14px",
+                borderRadius: "9999px",
+                cursor: "pointer",
+                fontSize: "14px",
+              }}
+            >
+              ❤️ いいね {post.likes}
+            </button>
+
+            {!isReply && (
+              <button
+                onClick={() => handleReply(post)}
+                style={{
+                  background: "transparent",
+                  color: "#1d9bf0",
+                  border: "1px solid #2f3336",
+                  padding: "8px 14px",
+                  borderRadius: "9999px",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                }}
+              >
+                💬 返信 {replies.length}
+              </button>
+            )}
+
+            {isOwner && (
+              <>
+                <button
+                  onClick={() => handleEdit(post)}
+                  style={{
+                    background: "transparent",
+                    color: "#ffd166",
+                    border: "1px solid #2f3336",
+                    padding: "8px 14px",
+                    borderRadius: "9999px",
+                    cursor: "pointer",
+                    fontSize: "14px",
+                  }}
+                >
+                  ✏️ 編集
+                </button>
+
+                <button
+                  onClick={() => handleDelete(post)}
+                  style={{
+                    background: "transparent",
+                    color: "#ff6b6b",
+                    border: "1px solid #2f3336",
+                    padding: "8px 14px",
+                    borderRadius: "9999px",
+                    cursor: "pointer",
+                    fontSize: "14px",
+                  }}
+                >
+                  🗑 削除
+                </button>
+              </>
+            )}
+          </div>
+
+          {!isReply && replies.length > 0 && (
+            <div
+              style={{
+                marginTop: "12px",
+                paddingTop: "4px",
+                borderTop: "1px solid #22303c",
+              }}
+            >
+              {replies.map((reply) => renderPostCard(reply, true))}
+            </div>
+          )}
+        </div>
+      </article>
+    );
+  };
 
   return (
     <main
@@ -523,6 +769,28 @@ export default function Home() {
             </p>
           )}
 
+          {replyTargetPost && (
+            <div
+              style={{
+                marginBottom: "14px",
+                padding: "12px 14px",
+                borderRadius: "14px",
+                border: "1px solid #2f3336",
+                background: "#192734",
+              }}
+            >
+              <div style={{ fontSize: "13px", color: "#1d9bf0", marginBottom: "6px" }}>
+                返信先
+              </div>
+              <div style={{ fontWeight: "bold", marginBottom: "6px" }}>
+                {getDisplayName(replyTargetPost)}
+              </div>
+              <div style={{ color: "#cfd9de", fontSize: "14px", whiteSpace: "pre-wrap" }}>
+                {replyTargetPost.content}
+              </div>
+            </div>
+          )}
+
           <div style={{ display: "flex", gap: "14px" }}>
             {myAvatarUrl ? (
               <img
@@ -562,7 +830,15 @@ export default function Home() {
               <textarea
                 value={text}
                 onChange={(e) => setText(e.target.value)}
-                placeholder={userEmail ? "いま何してる？" : "ログインすると投稿できる"}
+                placeholder={
+                  userEmail
+                    ? editingId !== null
+                      ? "投稿を編集"
+                      : replyingToId !== null
+                      ? "返信を入力"
+                      : "いま何してる？"
+                    : "ログインすると投稿できる"
+                }
                 disabled={!userEmail || submitting}
                 style={{
                   width: "100%",
@@ -651,11 +927,15 @@ export default function Home() {
                     color: remaining < 0 ? "#ff4d4f" : "#8899a6",
                   }}
                 >
-                  {editingId !== null ? "編集中" : `あと ${remaining} 文字`}
+                  {editingId !== null
+                    ? "編集中"
+                    : replyingToId !== null
+                    ? "返信中"
+                    : `あと ${remaining} 文字`}
                 </span>
 
                 <div style={{ display: "flex", gap: "10px" }}>
-                  {editingId !== null && (
+                  {(editingId !== null || replyingToId !== null) && (
                     <button
                       onClick={handleCancelEdit}
                       style={{
@@ -703,7 +983,13 @@ export default function Home() {
                           : "pointer",
                     }}
                   >
-                    {submitting ? "送信中..." : editingId !== null ? "更新" : "投稿"}
+                    {submitting
+                      ? "送信中..."
+                      : editingId !== null
+                      ? "更新"
+                      : replyingToId !== null
+                      ? "返信"
+                      : "投稿"}
                   </button>
                 </div>
               </div>
@@ -726,174 +1012,10 @@ export default function Home() {
 
           {loading ? (
             <p style={{ padding: "20px", color: "#8899a6" }}>読み込み中...</p>
-          ) : posts.length === 0 ? (
+          ) : rootPosts.length === 0 ? (
             <p style={{ padding: "20px", color: "#8899a6" }}>まだ投稿がない</p>
           ) : (
-            posts.map((post) => {
-              const isOwner = !!userId && post.user_id === userId;
-
-              return (
-                <article
-                  key={post.id}
-                  style={{
-                    display: "flex",
-                    gap: "14px",
-                    padding: "18px 20px",
-                    borderBottom: "1px solid #2f3336",
-                  }}
-                >
-                  {getAvatarUrl(post) ? (
-                    <img
-                      src={getAvatarUrl(post)!}
-                      alt="avatar"
-                      style={{
-                        width: "48px",
-                        height: "48px",
-                        borderRadius: "9999px",
-                        objectFit: "cover",
-                        flexShrink: 0,
-                        border: "1px solid #2f3336",
-                      }}
-                    />
-                  ) : (
-                    <Link
-                      href="/profile"
-                      style={{
-                        width: "48px",
-                        height: "48px",
-                        borderRadius: "9999px",
-                        background: "#1d9bf0",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontWeight: "bold",
-                        flexShrink: 0,
-                        color: "white",
-                        textDecoration: "none",
-                      }}
-                    >
-                      K
-                    </Link>
-                  )}
-
-                  <div style={{ flex: 1 }}>
-                    <div
-                      style={{
-                        display: "flex",
-                        gap: "8px",
-                        alignItems: "center",
-                        marginBottom: "8px",
-                        flexWrap: "wrap",
-                      }}
-                    >
-                      <Link
-                        href="/profile"
-                        style={{
-                          fontWeight: "bold",
-                          color: "white",
-                          textDecoration: "none",
-                        }}
-                      >
-                        {getDisplayName(post)}
-                      </Link>
-
-                      <span style={{ color: "#8899a6" }}>
-                        @{getUsername(post)}
-                      </span>
-
-                      <span style={{ color: "#8899a6", fontSize: "14px" }}>
-                        ・ {formatDate(post.created_at)}
-                      </span>
-                    </div>
-
-                    <p
-                      style={{
-                        fontSize: "18px",
-                        lineHeight: 1.6,
-                        whiteSpace: "pre-wrap",
-                        margin: 0,
-                        marginBottom: post.image_url ? "12px" : "14px",
-                      }}
-                    >
-                      {post.content}
-                    </p>
-
-                    {post.image_url && (
-                      <div
-                        style={{
-                          marginBottom: "14px",
-                          border: "1px solid #2f3336",
-                          borderRadius: "16px",
-                          overflow: "hidden",
-                        }}
-                      >
-                        <img
-                          src={post.image_url}
-                          alt="post image"
-                          style={{
-                            width: "100%",
-                            maxHeight: "420px",
-                            objectFit: "cover",
-                            display: "block",
-                          }}
-                        />
-                      </div>
-                    )}
-
-                    <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-                      <button
-                        onClick={() => handleLike(post.id, post.likes)}
-                        style={{
-                          background: "transparent",
-                          color: "#8899a6",
-                          border: "1px solid #2f3336",
-                          padding: "8px 14px",
-                          borderRadius: "9999px",
-                          cursor: "pointer",
-                          fontSize: "14px",
-                        }}
-                      >
-                        ❤️ いいね {post.likes}
-                      </button>
-
-                      {isOwner && (
-                        <>
-                          <button
-                            onClick={() => handleEdit(post)}
-                            style={{
-                              background: "transparent",
-                              color: "#ffd166",
-                              border: "1px solid #2f3336",
-                              padding: "8px 14px",
-                              borderRadius: "9999px",
-                              cursor: "pointer",
-                              fontSize: "14px",
-                            }}
-                          >
-                            ✏️ 編集
-                          </button>
-
-                          <button
-                            onClick={() => handleDelete(post)}
-                            style={{
-                              background: "transparent",
-                              color: "#ff6b6b",
-                              border: "1px solid #2f3336",
-                              padding: "8px 14px",
-                              borderRadius: "9999px",
-                              cursor: "pointer",
-                              fontSize: "14px",
-                            }}
-                          >
-                            🗑 削除
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </article>
-              );
-            })
+            rootPosts.map((post) => renderPostCard(post))
           )}
         </section>
       </div>
