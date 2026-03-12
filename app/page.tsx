@@ -25,25 +25,36 @@ export default function Home() {
   const [profiles, setProfiles] = useState<Record<string, Profile>>({});
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState("");
 
   const maxLength = 140;
   const remaining = useMemo(() => maxLength - text.length, [text]);
 
   const fetchPostsAndProfiles = async (currentUserId?: string | null) => {
-    const { data, error } = await supabase
-      .from("posts")
-      .select("*")
-      .order("created_at", { ascending: false });
+    setLoading(true);
+    setErrorMessage("");
 
-    if (!error && data) {
-      setPosts(data);
+    try {
+      const { data, error } = await supabase
+        .from("posts")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(20);
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      const postsData = (data ?? []) as Post[];
+      setPosts(postsData);
 
       const idSet = new Set<string>();
 
-      for (const post of data) {
+      for (const post of postsData) {
         if (post.user_id) {
           idSet.add(post.user_id);
         }
@@ -55,35 +66,48 @@ export default function Home() {
 
       const userIds = Array.from(idSet);
 
-      if (userIds.length > 0) {
-        const { data: profileData, error: profileError } = await supabase
-          .from("profiles")
-          .select("*")
-          .in("user_id", userIds);
-
-        if (!profileError && profileData) {
-          const profileMap: Record<string, Profile> = {};
-
-          for (const profile of profileData) {
-            profileMap[profile.user_id] = profile;
-          }
-
-          setProfiles(profileMap);
-        } else {
-          setProfiles({});
-        }
-      } else {
+      if (userIds.length === 0) {
         setProfiles({});
+        return;
       }
-    }
 
-    setLoading(false);
+      const { data: profileData, error: profileError } = await supabase
+        .from("profiles")
+        .select("user_id, display_name, bio, avatar_url")
+        .in("user_id", userIds);
+
+      if (profileError) {
+        console.error(profileError);
+        setProfiles({});
+        return;
+      }
+
+      const profileMap: Record<string, Profile> = {};
+
+      for (const profile of profileData ?? []) {
+        profileMap[profile.user_id] = profile;
+      }
+
+      setProfiles(profileMap);
+    } catch (error) {
+      console.error(error);
+      setPosts([]);
+      setProfiles({});
+      setErrorMessage("ホームの読み込みに失敗しました。再読み込みしてみて。");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const checkUser = async () => {
     const {
       data: { user },
+      error,
     } = await supabase.auth.getUser();
+
+    if (error) {
+      console.error(error);
+    }
 
     const currentEmail = user?.email ?? null;
     const currentId = user?.id ?? null;
@@ -104,22 +128,6 @@ export default function Home() {
     };
 
     init();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      const currentEmail = session?.user?.email ?? null;
-      const currentId = session?.user?.id ?? null;
-
-      setUserEmail(currentEmail);
-      setUserId(currentId);
-
-      await fetchPostsAndProfiles(currentId);
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
   }, []);
 
   const handlePost = async () => {
@@ -131,40 +139,70 @@ export default function Home() {
     if (!text.trim()) return;
     if (text.length > maxLength) return;
 
-    if (editingId !== null) {
-      const targetPost = posts.find((post) => post.id === editingId);
+    setSubmitting(true);
 
-      if (!targetPost || targetPost.user_id !== userId) {
-        alert("自分の投稿だけ編集できるよ");
+    try {
+      if (editingId !== null) {
+        const targetPost = posts.find((post) => post.id === editingId);
+
+        if (!targetPost || targetPost.user_id !== userId) {
+          alert("自分の投稿だけ編集できるよ");
+          setSubmitting(false);
+          return;
+        }
+
+        const { error } = await supabase
+          .from("posts")
+          .update({ content: text.trim() })
+          .eq("id", editingId);
+
+        if (error) {
+          alert("更新失敗: " + error.message);
+          setSubmitting(false);
+          return;
+        }
+
+        setPosts((prev) =>
+          prev.map((post) =>
+            post.id === editingId ? { ...post, content: text.trim() } : post
+          )
+        );
+
+        setText("");
+        setEditingId(null);
+        setSubmitting(false);
         return;
       }
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("posts")
-        .update({ content: text })
-        .eq("id", editingId);
+        .insert([
+          {
+            content: text.trim(),
+            likes: 0,
+            user_id: userId,
+            user_email: userEmail,
+          },
+        ])
+        .select()
+        .single();
 
-      if (!error) {
-        setText("");
-        setEditingId(null);
-        await fetchPostsAndProfiles(userId);
+      if (error) {
+        alert("投稿失敗: " + error.message);
+        setSubmitting(false);
+        return;
       }
 
-      return;
-    }
+      if (data) {
+        setPosts((prev) => [data as Post, ...prev]);
+      }
 
-    const { error } = await supabase.from("posts").insert([
-      {
-        content: text,
-        likes: 0,
-        user_id: userId,
-        user_email: userEmail,
-      },
-    ]);
-
-    if (!error) {
       setText("");
-      await fetchPostsAndProfiles(userId);
+    } catch (error) {
+      console.error(error);
+      alert("投稿失敗");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -174,9 +212,16 @@ export default function Home() {
       .update({ likes: currentLikes + 1 })
       .eq("id", id);
 
-    if (!error) {
-      await fetchPostsAndProfiles(userId);
+    if (error) {
+      alert("いいね失敗: " + error.message);
+      return;
     }
+
+    setPosts((prev) =>
+      prev.map((post) =>
+        post.id === id ? { ...post, likes: currentLikes + 1 } : post
+      )
+    );
   };
 
   const handleDelete = async (post: Post) => {
@@ -190,12 +235,16 @@ export default function Home() {
 
     const { error } = await supabase.from("posts").delete().eq("id", post.id);
 
-    if (!error) {
-      if (editingId === post.id) {
-        setEditingId(null);
-        setText("");
-      }
-      await fetchPostsAndProfiles(userId);
+    if (error) {
+      alert("削除失敗: " + error.message);
+      return;
+    }
+
+    setPosts((prev) => prev.filter((item) => item.id !== post.id));
+
+    if (editingId === post.id) {
+      setEditingId(null);
+      setText("");
     }
   };
 
@@ -215,13 +264,25 @@ export default function Home() {
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    const { error } = await supabase.auth.signOut();
+
+    if (error) {
+      alert("ログアウト失敗: " + error.message);
+      return;
+    }
+
     setUserEmail(null);
     setUserId(null);
     setEditingId(null);
     setText("");
     setProfiles({});
+    await fetchPostsAndProfiles(null);
     alert("ログアウトしたよ");
+  };
+
+  const handleRefresh = async () => {
+    const { currentId } = await checkUser();
+    await fetchPostsAndProfiles(currentId);
   };
 
   const formatDate = (dateString: string) => {
@@ -240,7 +301,7 @@ export default function Home() {
     if (post.user_id && profiles[post.user_id]?.display_name) {
       return profiles[post.user_id].display_name!;
     }
-    return post.user_email ?? "Kazuki";
+    return post.user_email?.split("@")[0] ?? "Kazuki";
   };
 
   const getUsername = (post: Post) => {
@@ -338,20 +399,38 @@ export default function Home() {
                   ログイン中: {userEmail}
                 </span>
 
-                <button
-                  onClick={handleLogout}
-                  style={{
-                    background: "transparent",
-                    color: "#ff6b6b",
-                    border: "1px solid #2f3336",
-                    padding: "8px 14px",
-                    borderRadius: "9999px",
-                    cursor: "pointer",
-                    fontSize: "14px",
-                  }}
-                >
-                  ログアウト
-                </button>
+                <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                  <button
+                    onClick={handleRefresh}
+                    disabled={loading}
+                    style={{
+                      background: "transparent",
+                      color: "#1d9bf0",
+                      border: "1px solid #2f3336",
+                      padding: "8px 14px",
+                      borderRadius: "9999px",
+                      cursor: loading ? "not-allowed" : "pointer",
+                      fontSize: "14px",
+                    }}
+                  >
+                    再読み込み
+                  </button>
+
+                  <button
+                    onClick={handleLogout}
+                    style={{
+                      background: "transparent",
+                      color: "#ff6b6b",
+                      border: "1px solid #2f3336",
+                      padding: "8px 14px",
+                      borderRadius: "9999px",
+                      cursor: "pointer",
+                      fontSize: "14px",
+                    }}
+                  >
+                    ログアウト
+                  </button>
+                </div>
               </>
             ) : (
               <Link
@@ -427,7 +506,7 @@ export default function Home() {
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 placeholder={userEmail ? "いま何してる？" : "ログインすると投稿できる"}
-                disabled={!userEmail}
+                disabled={!userEmail || submitting}
                 style={{
                   width: "100%",
                   minHeight: "110px",
@@ -480,10 +559,10 @@ export default function Home() {
 
                   <button
                     onClick={handlePost}
-                    disabled={!userEmail || !text.trim() || remaining < 0}
+                    disabled={!userEmail || !text.trim() || remaining < 0 || submitting}
                     style={{
                       background:
-                        !userEmail || !text.trim() || remaining < 0
+                        !userEmail || !text.trim() || remaining < 0 || submitting
                           ? "#375a7f"
                           : "#1d9bf0",
                       color: "white",
@@ -493,12 +572,12 @@ export default function Home() {
                       fontSize: "15px",
                       fontWeight: "bold",
                       cursor:
-                        !userEmail || !text.trim() || remaining < 0
+                        !userEmail || !text.trim() || remaining < 0 || submitting
                           ? "not-allowed"
                           : "pointer",
                     }}
                   >
-                    {editingId !== null ? "更新" : "投稿"}
+                    {submitting ? "送信中..." : editingId !== null ? "更新" : "投稿"}
                   </button>
                 </div>
               </div>
@@ -507,8 +586,22 @@ export default function Home() {
         </section>
 
         <section>
+          {errorMessage && (
+            <div
+              style={{
+                padding: "20px",
+                color: "#ffb4b4",
+                borderBottom: "1px solid #2f3336",
+              }}
+            >
+              {errorMessage}
+            </div>
+          )}
+
           {loading ? (
             <p style={{ padding: "20px", color: "#8899a6" }}>読み込み中...</p>
+          ) : posts.length === 0 ? (
+            <p style={{ padding: "20px", color: "#8899a6" }}>まだ投稿がない</p>
           ) : (
             posts.map((post) => {
               const isOwner = !!userId && post.user_id === userId;
