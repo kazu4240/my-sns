@@ -126,28 +126,30 @@ export default function SearchPage() {
         minHeight: "100vh",
         background: "#15202b",
         color: "white",
-        fontFamily: "sans-serif",
+        fontFamily:
+          'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
       }}
     >
       <div
         style={{
-          maxWidth: "680px",
+          maxWidth: "720px",
           margin: "0 auto",
           borderLeft: "1px solid #2f3336",
           borderRight: "1px solid #2f3336",
           minHeight: "100vh",
           background: "#15202b",
+          boxShadow: "0 0 0 1px rgba(0,0,0,0.02)",
         }}
       >
         <header
           style={{
             position: "sticky",
             top: 0,
-            background: "rgba(21,32,43,0.95)",
-            backdropFilter: "blur(8px)",
+            background: "rgba(21,32,43,0.93)",
+            backdropFilter: "blur(14px)",
             borderBottom: "1px solid #2f3336",
-            padding: "18px 20px",
-            zIndex: 10,
+            padding: "16px 20px 14px",
+            zIndex: 20,
           }}
         >
           <Link
@@ -157,152 +159,242 @@ export default function SearchPage() {
               textDecoration: "none",
               fontSize: "14px",
               display: "inline-block",
-              marginBottom: "8px",
+              marginBottom: "10px",
+              fontWeight: "bold",
             }}
           >
             ← ホームに戻る
           </Link>
 
-          <h1
+          <div
             style={{
-              margin: 0,
-              fontSize: "24px",
-              fontWeight: "bold",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "flex-start",
+              gap: "16px",
+              flexWrap: "wrap",
             }}
           >
-            ユーザー検索
-          </h1>
+            <div>
+              <div
+                style={{
+                  fontSize: "26px",
+                  fontWeight: 800,
+                  letterSpacing: "-0.02em",
+                  marginBottom: "6px",
+                }}
+              >
+                Ulein
+              </div>
+
+              <div
+                style={{
+                  color: "#8899a6",
+                  fontSize: "14px",
+                }}
+              >
+                ユーザー検索
+              </div>
+            </div>
+          </div>
         </header>
 
         <section
           style={{
-            padding: "20px",
+            padding: "18px 20px 20px",
             borderBottom: "1px solid #2f3336",
           }}
         >
-          <input
-            type="text"
-            placeholder="表示名・自己紹介・メール名で検索"
-            value={keyword}
-            onChange={(e) => setKeyword(e.target.value)}
+          <div
             style={{
-              width: "100%",
-              padding: "14px",
-              fontSize: "16px",
-              border: "1px solid #2f3336",
-              borderRadius: "12px",
-              outline: "none",
               background: "#192734",
-              color: "white",
+              border: "1px solid #2f3336",
+              borderRadius: "22px",
+              padding: "16px",
+              boxShadow: "0 12px 32px rgba(0,0,0,0.10)",
             }}
-          />
+          >
+            <input
+              type="text"
+              placeholder="表示名・自己紹介・メール名で検索"
+              value={keyword}
+              onChange={(e) => setKeyword(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "14px 16px",
+                fontSize: "16px",
+                border: "1px solid #2f3336",
+                borderRadius: "16px",
+                outline: "none",
+                background: "#15202b",
+                color: "white",
+                boxSizing: "border-box",
+              }}
+            />
+
+            <div
+              style={{
+                marginTop: "10px",
+                color: "#8899a6",
+                fontSize: "13px",
+              }}
+            >
+              名前、自己紹介、メール名の一部で検索できます
+            </div>
+          </div>
         </section>
 
-        {loading && (
-          <p style={{ padding: "20px", color: "#8899a6" }}>検索中...</p>
-        )}
+        <section style={{ padding: "18px 20px 24px" }}>
+          {loading && (
+            <div
+              style={{
+                border: "1px solid #2f3336",
+                borderRadius: "20px",
+                padding: "18px",
+                color: "#8899a6",
+                background: "#192734",
+              }}
+            >
+              検索中...
+            </div>
+          )}
 
-        {!loading && errorMessage && (
-          <p style={{ padding: "20px", color: "#ffb4b4" }}>{errorMessage}</p>
-        )}
+          {!loading && errorMessage && (
+            <div
+              style={{
+                padding: "14px 16px",
+                color: "#ffb4b4",
+                border: "1px solid rgba(255,107,107,0.25)",
+                background: "rgba(255,107,107,0.08)",
+                borderRadius: "18px",
+              }}
+            >
+              {errorMessage}
+            </div>
+          )}
 
-        {!loading && searched && !errorMessage && results.length === 0 && (
-          <p style={{ padding: "20px", color: "#8899a6" }}>
-            該当するユーザーが見つかりませんでした。
-          </p>
-        )}
+          {!loading && searched && !errorMessage && results.length === 0 && (
+            <div
+              style={{
+                border: "1px solid #2f3336",
+                borderRadius: "20px",
+                padding: "22px",
+                color: "#8899a6",
+                background: "#192734",
+                textAlign: "center",
+                boxShadow: "0 10px 28px rgba(0,0,0,0.08)",
+              }}
+            >
+              該当するユーザーが見つかりませんでした。
+            </div>
+          )}
 
-        <section style={{ display: "grid", gap: "0" }}>
-          {results.map((profile) => {
-            const shownName = profile.display_name || "名前未設定";
-            const shownBio = profile.bio || "自己紹介はまだありません";
-            const shownId = profile.user_email
-              ? `@${profile.user_email.split("@")[0]}`
-              : "@user";
+          {!loading && results.length > 0 && (
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "14px",
+              }}
+            >
+              {results.map((profile) => {
+                const shownName = profile.display_name || "名前未設定";
+                const shownBio = profile.bio || "自己紹介はまだありません";
+                const shownId = profile.user_email
+                  ? `@${profile.user_email.split("@")[0]}`
+                  : "@user";
 
-            return (
-              <Link
-                key={profile.user_id}
-                href={`/users/${profile.user_id}`}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "12px",
-                  padding: "18px 20px",
-                  borderBottom: "1px solid #2f3336",
-                  textDecoration: "none",
-                  color: "white",
-                  background: "#15202b",
-                }}
-              >
-                {profile.avatar_url ? (
-                  <img
-                    src={profile.avatar_url}
-                    alt="avatar"
+                return (
+                  <Link
+                    key={profile.user_id}
+                    href={`/users/${profile.user_id}`}
                     style={{
-                      width: "52px",
-                      height: "52px",
-                      borderRadius: "50%",
-                      objectFit: "cover",
-                      border: "1px solid #2f3336",
-                      flexShrink: 0,
-                    }}
-                  />
-                ) : (
-                  <div
-                    style={{
-                      width: "52px",
-                      height: "52px",
-                      borderRadius: "50%",
-                      background: "#1d9bf0",
                       display: "flex",
                       alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: "20px",
-                      fontWeight: "bold",
-                      flexShrink: 0,
+                      gap: "14px",
+                      padding: "18px",
+                      border: "1px solid #2f3336",
+                      borderRadius: "22px",
+                      textDecoration: "none",
+                      color: "white",
+                      background: "#192734",
+                      boxShadow: "0 10px 28px rgba(0,0,0,0.08)",
                     }}
                   >
-                    {shownName.slice(0, 1).toUpperCase()}
-                  </div>
-                )}
+                    {profile.avatar_url ? (
+                      <img
+                        src={profile.avatar_url}
+                        alt="avatar"
+                        style={{
+                          width: "56px",
+                          height: "56px",
+                          borderRadius: "50%",
+                          objectFit: "cover",
+                          border: "1px solid #2f3336",
+                          flexShrink: 0,
+                          boxShadow: "0 6px 18px rgba(0,0,0,0.14)",
+                        }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          width: "56px",
+                          height: "56px",
+                          borderRadius: "50%",
+                          background: "#1d9bf0",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: "20px",
+                          fontWeight: "bold",
+                          flexShrink: 0,
+                          color: "#ffffff",
+                          boxShadow: "0 6px 18px rgba(0,0,0,0.14)",
+                        }}
+                      >
+                        {shownName.slice(0, 1).toUpperCase()}
+                      </div>
+                    )}
 
-                <div style={{ minWidth: 0 }}>
-                  <div
-                    style={{
-                      fontWeight: "bold",
-                      fontSize: "16px",
-                      marginBottom: "4px",
-                      wordBreak: "break-all",
-                    }}
-                  >
-                    {shownName}
-                  </div>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div
+                        style={{
+                          fontWeight: "bold",
+                          fontSize: "17px",
+                          marginBottom: "4px",
+                          wordBreak: "break-all",
+                        }}
+                      >
+                        {shownName}
+                      </div>
 
-                  <div
-                    style={{
-                      color: "#8899a6",
-                      fontSize: "13px",
-                      marginBottom: "4px",
-                      wordBreak: "break-all",
-                    }}
-                  >
-                    {shownId}
-                  </div>
+                      <div
+                        style={{
+                          color: "#8899a6",
+                          fontSize: "13px",
+                          marginBottom: "6px",
+                          wordBreak: "break-all",
+                        }}
+                      >
+                        {shownId}
+                      </div>
 
-                  <div
-                    style={{
-                      color: "#8899a6",
-                      fontSize: "14px",
-                      wordBreak: "break-all",
-                    }}
-                  >
-                    {shownBio}
-                  </div>
-                </div>
-              </Link>
-            );
-          })}
+                      <div
+                        style={{
+                          color: "#cfd9de",
+                          fontSize: "14px",
+                          lineHeight: 1.6,
+                          wordBreak: "break-word",
+                        }}
+                      >
+                        {shownBio}
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
         </section>
       </div>
     </main>
