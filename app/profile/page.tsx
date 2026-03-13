@@ -29,6 +29,7 @@ const DEFAULT_BACKGROUND = "#15202b";
 const DEFAULT_CARD = "#192734";
 const DEFAULT_TEXT = "#ffffff";
 const DEFAULT_ACCENT = "#1d9bf0";
+const DEFAULT_BORDER = "#2f3336";
 
 export default function ProfilePage() {
   const [posts, setPosts] = useState<Post[]>([]);
@@ -50,14 +51,16 @@ export default function ProfilePage() {
   const [themeAccentColor, setThemeAccentColor] = useState(DEFAULT_ACCENT);
 
   const theme = useMemo(() => {
+    const textColor = themeTextColor || DEFAULT_TEXT;
+
     return {
       background: themeBackgroundColor || DEFAULT_BACKGROUND,
       card: themeCardColor || DEFAULT_CARD,
-      text: themeTextColor || DEFAULT_TEXT,
+      text: textColor,
       accent: themeAccentColor || DEFAULT_ACCENT,
-      border: "#2f3336",
-      muted: themeTextColor === "#000000" ? "#555555" : "#8899a6",
-      softText: themeTextColor === "#000000" ? "#444444" : "#cfd9de",
+      border: DEFAULT_BORDER,
+      muted: textColor === "#000000" ? "#555555" : "#8899a6",
+      softText: textColor === "#000000" ? "#444444" : "#cfd9de",
     };
   }, [themeBackgroundColor, themeCardColor, themeTextColor, themeAccentColor]);
 
@@ -294,127 +297,167 @@ export default function ProfilePage() {
         minHeight: "100vh",
         background: theme.background,
         color: theme.text,
-        fontFamily: "sans-serif",
+        fontFamily:
+          'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
       }}
     >
       <div
         style={{
-          maxWidth: "680px",
+          maxWidth: "720px",
           margin: "0 auto",
           borderLeft: `1px solid ${theme.border}`,
           borderRight: `1px solid ${theme.border}`,
           minHeight: "100vh",
           background: theme.background,
+          boxShadow: "0 0 0 1px rgba(0,0,0,0.02)",
         }}
       >
         <header
           style={{
             position: "sticky",
             top: 0,
-            background: theme.background,
+            background: `${theme.background}ee`,
+            backdropFilter: "blur(14px)",
             borderBottom: `1px solid ${theme.border}`,
-            padding: "18px 20px",
-            zIndex: 10,
+            padding: "16px 20px 14px",
+            zIndex: 20,
           }}
         >
-          <Link
-            href="/"
+          <div
             style={{
-              color: theme.accent,
-              textDecoration: "none",
-              fontSize: "14px",
-              display: "inline-block",
-              marginBottom: "8px",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "flex-start",
+              gap: "16px",
+              marginBottom: "12px",
             }}
           >
-            ← ホームに戻る
-          </Link>
+            <div>
+              <Link
+                href="/"
+                style={{
+                  color: theme.accent,
+                  textDecoration: "none",
+                  fontSize: "14px",
+                  display: "inline-block",
+                  marginBottom: "8px",
+                  fontWeight: "bold",
+                }}
+              >
+                ← ホームに戻る
+              </Link>
 
-          <h1
-            style={{
-              margin: 0,
-              fontSize: "24px",
-              fontWeight: "bold",
-              color: theme.text,
-            }}
-          >
-            Profile
-          </h1>
+              <div
+                style={{
+                  fontSize: "26px",
+                  fontWeight: 800,
+                  color: theme.text,
+                  letterSpacing: "-0.02em",
+                }}
+              >
+                Ulein
+              </div>
+            </div>
+          </div>
         </header>
 
         <section
           style={{
-            padding: "24px 20px",
+            padding: "22px 20px 20px",
             borderBottom: `1px solid ${theme.border}`,
           }}
         >
-          {avatarUrl ? (
-            <img
-              src={avatarUrl}
-              alt="avatar"
-              style={{
-                width: "88px",
-                height: "88px",
-                borderRadius: "9999px",
-                objectFit: "cover",
-                marginBottom: "16px",
-                border: `2px solid ${theme.border}`,
-              }}
-            />
-          ) : (
+          <div
+            style={{
+              background: theme.card,
+              border: `1px solid ${theme.border}`,
+              borderRadius: "24px",
+              padding: "20px",
+              boxShadow: "0 12px 32px rgba(0,0,0,0.10)",
+            }}
+          >
             <div
               style={{
-                width: "88px",
-                height: "88px",
-                borderRadius: "9999px",
-                background: theme.accent,
                 display: "flex",
+                gap: "18px",
                 alignItems: "center",
-                justifyContent: "center",
-                fontSize: "32px",
-                fontWeight: "bold",
-                marginBottom: "16px",
-                color: "#ffffff",
+                flexWrap: "wrap",
               }}
             >
-              {shownName.charAt(0).toUpperCase()}
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt="avatar"
+                  style={{
+                    width: "92px",
+                    height: "92px",
+                    borderRadius: "9999px",
+                    objectFit: "cover",
+                    border: `2px solid ${theme.border}`,
+                    boxShadow: "0 8px 20px rgba(0,0,0,0.14)",
+                  }}
+                />
+              ) : (
+                <div
+                  style={{
+                    width: "92px",
+                    height: "92px",
+                    borderRadius: "9999px",
+                    background: theme.accent,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "34px",
+                    fontWeight: "bold",
+                    color: "#ffffff",
+                    boxShadow: "0 8px 20px rgba(0,0,0,0.14)",
+                  }}
+                >
+                  {shownName.charAt(0).toUpperCase()}
+                </div>
+              )}
+
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <h1
+                  style={{
+                    margin: 0,
+                    fontSize: "30px",
+                    fontWeight: 800,
+                    color: theme.text,
+                    wordBreak: "break-all",
+                    letterSpacing: "-0.02em",
+                  }}
+                >
+                  {shownName}
+                </h1>
+
+                <div
+                  style={{
+                    marginTop: "6px",
+                    marginBottom: "14px",
+                    color: theme.muted,
+                    fontSize: "15px",
+                    wordBreak: "break-all",
+                  }}
+                >
+                  @{shownId}
+                </div>
+
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: "15px",
+                    lineHeight: 1.7,
+                    whiteSpace: "pre-wrap",
+                    color: theme.softText,
+                    wordBreak: "break-word",
+                  }}
+                >
+                  {bio || "自己紹介をまだ設定していません。"}
+                </p>
+              </div>
             </div>
-          )}
-
-          <h2
-            style={{
-              margin: 0,
-              fontSize: "28px",
-              fontWeight: "bold",
-              wordBreak: "break-all",
-              color: theme.text,
-            }}
-          >
-            {shownName}
-          </h2>
-
-          <p
-            style={{
-              marginTop: "6px",
-              marginBottom: "14px",
-              color: theme.muted,
-              fontSize: "16px",
-            }}
-          >
-            @{shownId}
-          </p>
-
-          <p
-            style={{
-              margin: 0,
-              fontSize: "16px",
-              lineHeight: 1.7,
-              whiteSpace: "pre-wrap",
-              color: theme.text,
-            }}
-          >
-            {bio || "自己紹介をまだ設定していません。"}
-          </p>
+          </div>
         </section>
 
         <section
@@ -423,25 +466,47 @@ export default function ProfilePage() {
             borderBottom: `1px solid ${theme.border}`,
           }}
         >
-          <h3
+          <div
             style={{
-              marginTop: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "12px",
               marginBottom: "16px",
-              fontSize: "20px",
-              color: theme.text,
+              flexWrap: "wrap",
             }}
           >
-            プロフィール編集
-          </h3>
+            <h2
+              style={{
+                margin: 0,
+                fontSize: "22px",
+                fontWeight: 800,
+                color: theme.text,
+                letterSpacing: "-0.02em",
+              }}
+            >
+              プロフィール編集
+            </h2>
+
+            <div
+              style={{
+                color: theme.muted,
+                fontSize: "13px",
+                fontWeight: "bold",
+              }}
+            >
+              自分の見た目をカスタム
+            </div>
+          </div>
 
           {errorMessage && (
             <div
               style={{
                 marginBottom: "14px",
-                border: "1px solid #5b2c2c",
-                background: "#2a1515",
+                border: "1px solid rgba(255,107,107,0.25)",
+                background: "rgba(255,107,107,0.08)",
                 color: "#ffb4b4",
-                borderRadius: "12px",
+                borderRadius: "16px",
                 padding: "12px 14px",
                 fontSize: "14px",
               }}
@@ -454,7 +519,7 @@ export default function ProfilePage() {
             <div
               style={{
                 border: `1px solid ${theme.border}`,
-                borderRadius: "16px",
+                borderRadius: "18px",
                 padding: "18px",
                 color: theme.muted,
                 background: theme.card,
@@ -470,61 +535,89 @@ export default function ProfilePage() {
                 gap: "14px",
               }}
             >
-              <input
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="表示名"
+              <div
                 style={{
-                  padding: "14px",
-                  borderRadius: "12px",
-                  border: `1px solid ${theme.border}`,
                   background: theme.card,
-                  color: theme.text,
-                  fontSize: "16px",
+                  border: `1px solid ${theme.border}`,
+                  borderRadius: "20px",
+                  padding: "16px",
+                  boxShadow: "0 10px 28px rgba(0,0,0,0.08)",
                 }}
-              />
+              >
+                <div
+                  style={{
+                    display: "grid",
+                    gap: "12px",
+                  }}
+                >
+                  <input
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    placeholder="表示名"
+                    style={{
+                      padding: "14px",
+                      borderRadius: "14px",
+                      border: `1px solid ${theme.border}`,
+                      background: theme.background,
+                      color: theme.text,
+                      fontSize: "16px",
+                    }}
+                  />
 
-              <textarea
-                value={bio}
-                onChange={(e) => setBio(e.target.value)}
-                placeholder="自己紹介"
-                style={{
-                  minHeight: "110px",
-                  padding: "14px",
-                  borderRadius: "12px",
-                  border: `1px solid ${theme.border}`,
-                  background: theme.card,
-                  color: theme.text,
-                  fontSize: "16px",
-                  resize: "vertical",
-                }}
-              />
+                  <textarea
+                    value={bio}
+                    onChange={(e) => setBio(e.target.value)}
+                    placeholder="自己紹介"
+                    style={{
+                      minHeight: "120px",
+                      padding: "14px",
+                      borderRadius: "14px",
+                      border: `1px solid ${theme.border}`,
+                      background: theme.background,
+                      color: theme.text,
+                      fontSize: "16px",
+                      resize: "vertical",
+                    }}
+                  />
 
-              <input
-                value={avatarUrl}
-                onChange={(e) => setAvatarUrl(e.target.value)}
-                placeholder="アイコン画像URL"
-                style={{
-                  padding: "14px",
-                  borderRadius: "12px",
-                  border: `1px solid ${theme.border}`,
-                  background: theme.card,
-                  color: theme.text,
-                  fontSize: "16px",
-                }}
-              />
+                  <input
+                    value={avatarUrl}
+                    onChange={(e) => setAvatarUrl(e.target.value)}
+                    placeholder="アイコン画像URL"
+                    style={{
+                      padding: "14px",
+                      borderRadius: "14px",
+                      border: `1px solid ${theme.border}`,
+                      background: theme.background,
+                      color: theme.text,
+                      fontSize: "16px",
+                    }}
+                  />
+                </div>
+              </div>
 
               <div
                 style={{
                   display: "flex",
                   flexDirection: "column",
                   gap: "8px",
-                  padding: "14px",
-                  borderRadius: "12px",
+                  padding: "16px",
+                  borderRadius: "20px",
                   border: `1px solid ${theme.border}`,
                   background: theme.card,
+                  boxShadow: "0 10px 28px rgba(0,0,0,0.08)",
                 }}
               >
+                <div
+                  style={{
+                    fontWeight: "bold",
+                    color: theme.text,
+                    fontSize: "16px",
+                  }}
+                >
+                  アイコン画像アップロード
+                </div>
+
                 <label style={{ fontSize: "14px", color: theme.muted }}>
                   画像ファイルからアップロード
                 </label>
@@ -552,17 +645,19 @@ export default function ProfilePage() {
 
               <div
                 style={{
-                  padding: "14px",
-                  borderRadius: "12px",
+                  padding: "16px",
+                  borderRadius: "20px",
                   border: `1px solid ${theme.border}`,
                   background: theme.card,
+                  boxShadow: "0 10px 28px rgba(0,0,0,0.08)",
                 }}
               >
                 <div
                   style={{
                     fontWeight: "bold",
-                    marginBottom: "12px",
+                    marginBottom: "14px",
                     color: theme.text,
+                    fontSize: "16px",
                   }}
                 >
                   テーマ設定
@@ -586,6 +681,7 @@ export default function ProfilePage() {
                       padding: "10px 14px",
                       borderRadius: "9999px",
                       cursor: "pointer",
+                      fontWeight: "bold",
                     }}
                   >
                     黒
@@ -601,6 +697,7 @@ export default function ProfilePage() {
                       padding: "10px 14px",
                       borderRadius: "9999px",
                       cursor: "pointer",
+                      fontWeight: "bold",
                     }}
                   >
                     白
@@ -616,25 +713,21 @@ export default function ProfilePage() {
                       padding: "10px 14px",
                       borderRadius: "9999px",
                       cursor: "pointer",
+                      fontWeight: "bold",
                     }}
                   >
                     紺
                   </button>
                 </div>
 
-                <div
-                  style={{
-                    display: "grid",
-                    gap: "12px",
-                  }}
-                >
+                <div style={{ display: "grid", gap: "12px" }}>
                   <input
                     value={themeBackgroundColor}
                     onChange={(e) => setThemeBackgroundColor(e.target.value)}
                     placeholder="背景色 例: #15202b"
                     style={{
                       padding: "12px",
-                      borderRadius: "12px",
+                      borderRadius: "14px",
                       border: `1px solid ${theme.border}`,
                       background: theme.background,
                       color: theme.text,
@@ -648,7 +741,7 @@ export default function ProfilePage() {
                     placeholder="カード色 例: #192734"
                     style={{
                       padding: "12px",
-                      borderRadius: "12px",
+                      borderRadius: "14px",
                       border: `1px solid ${theme.border}`,
                       background: theme.background,
                       color: theme.text,
@@ -662,7 +755,7 @@ export default function ProfilePage() {
                     placeholder="文字色 例: #ffffff"
                     style={{
                       padding: "12px",
-                      borderRadius: "12px",
+                      borderRadius: "14px",
                       border: `1px solid ${theme.border}`,
                       background: theme.background,
                       color: theme.text,
@@ -676,7 +769,7 @@ export default function ProfilePage() {
                     placeholder="アクセント色 例: #1d9bf0"
                     style={{
                       padding: "12px",
-                      borderRadius: "12px",
+                      borderRadius: "14px",
                       border: `1px solid ${theme.border}`,
                       background: theme.background,
                       color: theme.text,
@@ -691,14 +784,17 @@ export default function ProfilePage() {
                   onClick={handleSaveProfile}
                   disabled={saving || uploading}
                   style={{
-                    alignSelf: "flex-start",
                     background: saving || uploading ? "#375a7f" : theme.accent,
                     color: "#ffffff",
                     border: "none",
-                    padding: "12px 20px",
+                    padding: "12px 22px",
                     borderRadius: "9999px",
-                    fontWeight: "bold",
+                    fontWeight: 800,
                     cursor: saving || uploading ? "not-allowed" : "pointer",
+                    boxShadow:
+                      saving || uploading
+                        ? "none"
+                        : "0 8px 20px rgba(29,155,240,0.28)",
                   }}
                 >
                   {saving ? "保存中..." : uploading ? "アップロード中..." : "保存"}
@@ -708,7 +804,6 @@ export default function ProfilePage() {
                   onClick={loadPage}
                   disabled={loading}
                   style={{
-                    alignSelf: "flex-start",
                     background: theme.card,
                     color: theme.text,
                     border: `1px solid ${theme.border}`,
@@ -725,27 +820,45 @@ export default function ProfilePage() {
           )}
         </section>
 
-        <section
-          style={{
-            padding: "20px",
-          }}
-        >
-          <h3
+        <section style={{ padding: "20px" }}>
+          <div
             style={{
-              marginTop: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "12px",
               marginBottom: "16px",
-              fontSize: "20px",
-              color: theme.text,
+              flexWrap: "wrap",
             }}
           >
-            自分の投稿
-          </h3>
+            <h2
+              style={{
+                margin: 0,
+                fontSize: "22px",
+                fontWeight: 800,
+                color: theme.text,
+                letterSpacing: "-0.02em",
+              }}
+            >
+              自分の投稿
+            </h2>
+
+            <div
+              style={{
+                color: theme.muted,
+                fontSize: "13px",
+                fontWeight: "bold",
+              }}
+            >
+              最新10件
+            </div>
+          </div>
 
           {loading ? (
             <div
               style={{
                 border: `1px solid ${theme.border}`,
-                borderRadius: "16px",
+                borderRadius: "18px",
                 padding: "18px",
                 color: theme.muted,
                 background: theme.card,
@@ -757,7 +870,7 @@ export default function ProfilePage() {
             <div
               style={{
                 border: `1px solid ${theme.border}`,
-                borderRadius: "16px",
+                borderRadius: "18px",
                 padding: "18px",
                 color: theme.muted,
                 background: theme.card,
@@ -769,7 +882,7 @@ export default function ProfilePage() {
             <div
               style={{
                 border: `1px solid ${theme.border}`,
-                borderRadius: "16px",
+                borderRadius: "18px",
                 padding: "18px",
                 color: theme.muted,
                 background: theme.card,
@@ -790,9 +903,10 @@ export default function ProfilePage() {
                   key={post.id}
                   style={{
                     border: `1px solid ${theme.border}`,
-                    borderRadius: "16px",
+                    borderRadius: "20px",
                     padding: "18px",
                     background: theme.card,
+                    boxShadow: "0 10px 28px rgba(0,0,0,0.08)",
                   }}
                 >
                   <div
@@ -805,10 +919,10 @@ export default function ProfilePage() {
                     }}
                   >
                     <span style={{ fontWeight: "bold", color: theme.text }}>
-                      {displayName || post.user_email || "Kazuki"}
+                      {displayName || post.user_email || "Ulein"}
                     </span>
                     <span style={{ color: theme.muted }}>@{shownId}</span>
-                    <span style={{ color: theme.muted, fontSize: "14px" }}>
+                    <span style={{ color: theme.muted, fontSize: "13px" }}>
                       ・ {formatDate(post.created_at)}
                     </span>
                   </div>
@@ -818,9 +932,10 @@ export default function ProfilePage() {
                       margin: 0,
                       marginBottom: "12px",
                       fontSize: "17px",
-                      lineHeight: 1.6,
+                      lineHeight: 1.75,
                       whiteSpace: "pre-wrap",
                       color: theme.text,
+                      wordBreak: "break-word",
                     }}
                   >
                     {post.content}
@@ -830,6 +945,7 @@ export default function ProfilePage() {
                     style={{
                       color: theme.muted,
                       fontSize: "14px",
+                      fontWeight: "bold",
                     }}
                   >
                     ❤️ いいね {post.likes}
