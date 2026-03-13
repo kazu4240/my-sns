@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ChangeEvent, useEffect, useRef, useState } from "react";
+import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 
 type Post = {
@@ -19,13 +19,23 @@ type Profile = {
   display_name: string | null;
   bio: string | null;
   avatar_url: string | null;
+  theme_background_color: string | null;
+  theme_card_color: string | null;
+  theme_text_color: string | null;
+  theme_accent_color: string | null;
 };
+
+const DEFAULT_BACKGROUND = "#15202b";
+const DEFAULT_CARD = "#192734";
+const DEFAULT_TEXT = "#ffffff";
+const DEFAULT_ACCENT = "#1d9bf0";
 
 export default function ProfilePage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
@@ -34,87 +44,128 @@ export default function ProfilePage() {
   const [bio, setBio] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
 
-  const initializedRef = useRef(false);
+  const [themeBackgroundColor, setThemeBackgroundColor] = useState(DEFAULT_BACKGROUND);
+  const [themeCardColor, setThemeCardColor] = useState(DEFAULT_CARD);
+  const [themeTextColor, setThemeTextColor] = useState(DEFAULT_TEXT);
+  const [themeAccentColor, setThemeAccentColor] = useState(DEFAULT_ACCENT);
 
-  const loadPage = async () => {
-    setLoading(true);
+  const theme = useMemo(() => {
+    return {
+      background: themeBackgroundColor || DEFAULT_BACKGROUND,
+      card: themeCardColor || DEFAULT_CARD,
+      text: themeTextColor || DEFAULT_TEXT,
+      accent: themeAccentColor || DEFAULT_ACCENT,
+      border: "#2f3336",
+      muted: themeTextColor === "#000000" ? "#555555" : "#8899a6",
+      softText: themeTextColor === "#000000" ? "#444444" : "#cfd9de",
+    };
+  }, [themeBackgroundColor, themeCardColor, themeTextColor, themeAccentColor]);
 
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError) {
-      console.error(userError);
-    }
-
-    setUserEmail(user?.email ?? null);
-    setUserId(user?.id ?? null);
-
-    if (!user?.id) {
-      setPosts([]);
-      setDisplayName("");
-      setBio("");
-      setAvatarUrl("");
-      setLoading(false);
+  const applyPreset = (preset: "black" | "white" | "navy") => {
+    if (preset === "black") {
+      setThemeBackgroundColor("#000000");
+      setThemeCardColor("#111111");
+      setThemeTextColor("#ffffff");
+      setThemeAccentColor("#1d9bf0");
       return;
     }
 
-    const [profileResult, postsResult] = await Promise.all([
-      supabase.from("profiles").select("*").eq("user_id", user.id).maybeSingle(),
-      supabase
-        .from("posts")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(10),
-    ]);
-
-    const { data: profileData, error: profileError } = profileResult;
-    const { data: postsData, error: postsError } = postsResult;
-
-    if (profileError) {
-      console.error(profileError);
+    if (preset === "white") {
+      setThemeBackgroundColor("#f5f7fa");
+      setThemeCardColor("#ffffff");
+      setThemeTextColor("#111111");
+      setThemeAccentColor("#2563eb");
+      return;
     }
 
-    if (profileData) {
-      const profile = profileData as Profile;
-      setDisplayName(profile.display_name ?? "");
-      setBio(profile.bio ?? "");
-      setAvatarUrl(profile.avatar_url ?? "");
-    } else {
-      setDisplayName(user.email?.split("@")[0] ?? "");
-      setBio("");
-      setAvatarUrl("");
-    }
+    setThemeBackgroundColor("#15202b");
+    setThemeCardColor("#192734");
+    setThemeTextColor("#ffffff");
+    setThemeAccentColor("#1d9bf0");
+  };
 
-    if (postsError) {
-      console.error(postsError);
+  const loadPage = async () => {
+    setLoading(true);
+    setErrorMessage("");
+
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError) {
+        throw new Error(userError.message);
+      }
+
+      setUserEmail(user?.email ?? null);
+      setUserId(user?.id ?? null);
+
+      if (!user?.id) {
+        setPosts([]);
+        setDisplayName("");
+        setBio("");
+        setAvatarUrl("");
+        setThemeBackgroundColor(DEFAULT_BACKGROUND);
+        setThemeCardColor(DEFAULT_CARD);
+        setThemeTextColor(DEFAULT_TEXT);
+        setThemeAccentColor(DEFAULT_ACCENT);
+        return;
+      }
+
+      const [profileResult, postsResult] = await Promise.all([
+        supabase.from("profiles").select("*").eq("user_id", user.id).maybeSingle(),
+        supabase
+          .from("posts")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(10),
+      ]);
+
+      const profileData = profileResult.data as Profile | null;
+      const postsData = (postsResult.data ?? []) as Post[];
+
+      if (profileResult.error) {
+        console.error(profileResult.error);
+      }
+
+      if (postsResult.error) {
+        console.error(postsResult.error);
+      }
+
+      if (profileData) {
+        setDisplayName(profileData.display_name ?? "");
+        setBio(profileData.bio ?? "");
+        setAvatarUrl(profileData.avatar_url ?? "");
+        setThemeBackgroundColor(
+          profileData.theme_background_color ?? DEFAULT_BACKGROUND
+        );
+        setThemeCardColor(profileData.theme_card_color ?? DEFAULT_CARD);
+        setThemeTextColor(profileData.theme_text_color ?? DEFAULT_TEXT);
+        setThemeAccentColor(profileData.theme_accent_color ?? DEFAULT_ACCENT);
+      } else {
+        setDisplayName(user.email?.split("@")[0] ?? "");
+        setBio("");
+        setAvatarUrl("");
+        setThemeBackgroundColor(DEFAULT_BACKGROUND);
+        setThemeCardColor(DEFAULT_CARD);
+        setThemeTextColor(DEFAULT_TEXT);
+        setThemeAccentColor(DEFAULT_ACCENT);
+      }
+
+      setPosts(postsData);
+    } catch (error) {
+      console.error(error);
+      setErrorMessage("読み込み失敗。もう一度試してみて。");
       setPosts([]);
-    } else {
-      setPosts(postsData ?? []);
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   useEffect(() => {
-    if (initializedRef.current) return;
-    initializedRef.current = true;
-
     loadPage();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event) => {
-      if (_event === "SIGNED_IN" || _event === "SIGNED_OUT") {
-        loadPage();
-      }
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
   }, []);
 
   const handleAvatarUpload = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -141,7 +192,6 @@ export default function ProfilePage() {
 
       if (uploadError) {
         alert("画像アップロード失敗: " + uploadError.message);
-        setUploading(false);
         return;
       }
 
@@ -152,9 +202,9 @@ export default function ProfilePage() {
     } catch (error) {
       console.error(error);
       alert("画像アップロード失敗");
+    } finally {
+      setUploading(false);
     }
-
-    setUploading(false);
   };
 
   const handleSaveProfile = async () => {
@@ -165,49 +215,61 @@ export default function ProfilePage() {
 
     setSaving(true);
 
-    const { data: existingProfile, error: checkError } = await supabase
-      .from("profiles")
-      .select("user_id")
-      .eq("user_id", userId)
-      .maybeSingle();
-
-    if (checkError) {
-      setSaving(false);
-      alert("確認失敗: " + checkError.message);
-      return;
-    }
-
-    let error: { message: string } | null = null;
-
-    if (existingProfile) {
-      const { error: updateError } = await supabase
+    try {
+      const { data: existingProfile, error: checkError } = await supabase
         .from("profiles")
-        .update({
+        .select("user_id")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (checkError) {
+        alert("確認失敗: " + checkError.message);
+        return;
+      }
+
+      if (existingProfile) {
+        const { error: updateError } = await supabase
+          .from("profiles")
+          .update({
+            display_name: displayName,
+            bio,
+            avatar_url: avatarUrl,
+            theme_background_color: themeBackgroundColor,
+            theme_card_color: themeCardColor,
+            theme_text_color: themeTextColor,
+            theme_accent_color: themeAccentColor,
+          })
+          .eq("user_id", userId);
+
+        if (updateError) {
+          alert("保存失敗: " + updateError.message);
+          return;
+        }
+      } else {
+        const { error: insertError } = await supabase.from("profiles").insert({
+          user_id: userId,
           display_name: displayName,
           bio,
           avatar_url: avatarUrl,
-        })
-        .eq("user_id", userId);
+          theme_background_color: themeBackgroundColor,
+          theme_card_color: themeCardColor,
+          theme_text_color: themeTextColor,
+          theme_accent_color: themeAccentColor,
+        });
 
-      error = updateError;
-    } else {
-      const { error: insertError } = await supabase.from("profiles").insert({
-        user_id: userId,
-        display_name: displayName,
-        bio,
-        avatar_url: avatarUrl,
-      });
+        if (insertError) {
+          alert("保存失敗: " + insertError.message);
+          return;
+        }
+      }
 
-      error = insertError;
-    }
-
-    setSaving(false);
-
-    if (error) {
-      alert("保存失敗: " + error.message);
-    } else {
       await loadPage();
       alert("プロフィール保存できた！");
+    } catch (error) {
+      console.error(error);
+      alert("保存失敗");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -230,8 +292,8 @@ export default function ProfilePage() {
     <main
       style={{
         minHeight: "100vh",
-        background: "#15202b",
-        color: "white",
+        background: theme.background,
+        color: theme.text,
         fontFamily: "sans-serif",
       }}
     >
@@ -239,19 +301,18 @@ export default function ProfilePage() {
         style={{
           maxWidth: "680px",
           margin: "0 auto",
-          borderLeft: "1px solid #2f3336",
-          borderRight: "1px solid #2f3336",
+          borderLeft: `1px solid ${theme.border}`,
+          borderRight: `1px solid ${theme.border}`,
           minHeight: "100vh",
-          background: "#15202b",
+          background: theme.background,
         }}
       >
         <header
           style={{
             position: "sticky",
             top: 0,
-            background: "rgba(21,32,43,0.95)",
-            backdropFilter: "blur(8px)",
-            borderBottom: "1px solid #2f3336",
+            background: theme.background,
+            borderBottom: `1px solid ${theme.border}`,
             padding: "18px 20px",
             zIndex: 10,
           }}
@@ -259,7 +320,7 @@ export default function ProfilePage() {
           <Link
             href="/"
             style={{
-              color: "#1d9bf0",
+              color: theme.accent,
               textDecoration: "none",
               fontSize: "14px",
               display: "inline-block",
@@ -274,6 +335,7 @@ export default function ProfilePage() {
               margin: 0,
               fontSize: "24px",
               fontWeight: "bold",
+              color: theme.text,
             }}
           >
             Profile
@@ -283,7 +345,7 @@ export default function ProfilePage() {
         <section
           style={{
             padding: "24px 20px",
-            borderBottom: "1px solid #2f3336",
+            borderBottom: `1px solid ${theme.border}`,
           }}
         >
           {avatarUrl ? (
@@ -296,7 +358,7 @@ export default function ProfilePage() {
                 borderRadius: "9999px",
                 objectFit: "cover",
                 marginBottom: "16px",
-                border: "2px solid #2f3336",
+                border: `2px solid ${theme.border}`,
               }}
             />
           ) : (
@@ -305,13 +367,14 @@ export default function ProfilePage() {
                 width: "88px",
                 height: "88px",
                 borderRadius: "9999px",
-                background: "#1d9bf0",
+                background: theme.accent,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 fontSize: "32px",
                 fontWeight: "bold",
                 marginBottom: "16px",
+                color: "#ffffff",
               }}
             >
               {shownName.charAt(0).toUpperCase()}
@@ -324,6 +387,7 @@ export default function ProfilePage() {
               fontSize: "28px",
               fontWeight: "bold",
               wordBreak: "break-all",
+              color: theme.text,
             }}
           >
             {shownName}
@@ -333,7 +397,7 @@ export default function ProfilePage() {
             style={{
               marginTop: "6px",
               marginBottom: "14px",
-              color: "#8899a6",
+              color: theme.muted,
               fontSize: "16px",
             }}
           >
@@ -346,6 +410,7 @@ export default function ProfilePage() {
               fontSize: "16px",
               lineHeight: 1.7,
               whiteSpace: "pre-wrap",
+              color: theme.text,
             }}
           >
             {bio || "自己紹介をまだ設定していません。"}
@@ -355,7 +420,7 @@ export default function ProfilePage() {
         <section
           style={{
             padding: "20px",
-            borderBottom: "1px solid #2f3336",
+            borderBottom: `1px solid ${theme.border}`,
           }}
         >
           <h3
@@ -363,18 +428,36 @@ export default function ProfilePage() {
               marginTop: 0,
               marginBottom: "16px",
               fontSize: "20px",
+              color: theme.text,
             }}
           >
             プロフィール編集
           </h3>
 
+          {errorMessage && (
+            <div
+              style={{
+                marginBottom: "14px",
+                border: "1px solid #5b2c2c",
+                background: "#2a1515",
+                color: "#ffb4b4",
+                borderRadius: "12px",
+                padding: "12px 14px",
+                fontSize: "14px",
+              }}
+            >
+              {errorMessage}
+            </div>
+          )}
+
           {!userId ? (
             <div
               style={{
-                border: "1px solid #2f3336",
+                border: `1px solid ${theme.border}`,
                 borderRadius: "16px",
                 padding: "18px",
-                color: "#8899a6",
+                color: theme.muted,
+                background: theme.card,
               }}
             >
               ログインするとプロフィール編集ができる
@@ -394,9 +477,9 @@ export default function ProfilePage() {
                 style={{
                   padding: "14px",
                   borderRadius: "12px",
-                  border: "1px solid #2f3336",
-                  background: "#192734",
-                  color: "white",
+                  border: `1px solid ${theme.border}`,
+                  background: theme.card,
+                  color: theme.text,
                   fontSize: "16px",
                 }}
               />
@@ -409,9 +492,9 @@ export default function ProfilePage() {
                   minHeight: "110px",
                   padding: "14px",
                   borderRadius: "12px",
-                  border: "1px solid #2f3336",
-                  background: "#192734",
-                  color: "white",
+                  border: `1px solid ${theme.border}`,
+                  background: theme.card,
+                  color: theme.text,
                   fontSize: "16px",
                   resize: "vertical",
                 }}
@@ -424,9 +507,9 @@ export default function ProfilePage() {
                 style={{
                   padding: "14px",
                   borderRadius: "12px",
-                  border: "1px solid #2f3336",
-                  background: "#192734",
-                  color: "white",
+                  border: `1px solid ${theme.border}`,
+                  background: theme.card,
+                  color: theme.text,
                   fontSize: "16px",
                 }}
               />
@@ -438,11 +521,11 @@ export default function ProfilePage() {
                   gap: "8px",
                   padding: "14px",
                   borderRadius: "12px",
-                  border: "1px solid #2f3336",
-                  background: "#192734",
+                  border: `1px solid ${theme.border}`,
+                  background: theme.card,
                 }}
               >
-                <label style={{ fontSize: "14px", color: "#8899a6" }}>
+                <label style={{ fontSize: "14px", color: theme.muted }}>
                   画像ファイルからアップロード
                 </label>
 
@@ -452,7 +535,7 @@ export default function ProfilePage() {
                   onChange={handleAvatarUpload}
                   disabled={uploading}
                   style={{
-                    color: "white",
+                    color: theme.text,
                     fontSize: "14px",
                   }}
                 />
@@ -460,29 +543,184 @@ export default function ProfilePage() {
                 <span
                   style={{
                     fontSize: "13px",
-                    color: "#8899a6",
+                    color: theme.muted,
                   }}
                 >
                   {uploading ? "アップロード中..." : "画像を選ぶとアップロードされる"}
                 </span>
               </div>
 
-              <button
-                onClick={handleSaveProfile}
-                disabled={saving || uploading}
+              <div
                 style={{
-                  alignSelf: "flex-start",
-                  background: saving || uploading ? "#375a7f" : "#1d9bf0",
-                  color: "white",
-                  border: "none",
-                  padding: "12px 20px",
-                  borderRadius: "9999px",
-                  fontWeight: "bold",
-                  cursor: saving || uploading ? "not-allowed" : "pointer",
+                  padding: "14px",
+                  borderRadius: "12px",
+                  border: `1px solid ${theme.border}`,
+                  background: theme.card,
                 }}
               >
-                {saving ? "保存中..." : uploading ? "アップロード中..." : "保存"}
-              </button>
+                <div
+                  style={{
+                    fontWeight: "bold",
+                    marginBottom: "12px",
+                    color: theme.text,
+                  }}
+                >
+                  テーマ設定
+                </div>
+
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "10px",
+                    flexWrap: "wrap",
+                    marginBottom: "14px",
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => applyPreset("black")}
+                    style={{
+                      background: "#111111",
+                      color: "#ffffff",
+                      border: "1px solid #333333",
+                      padding: "10px 14px",
+                      borderRadius: "9999px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    黒
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => applyPreset("white")}
+                    style={{
+                      background: "#ffffff",
+                      color: "#111111",
+                      border: "1px solid #cccccc",
+                      padding: "10px 14px",
+                      borderRadius: "9999px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    白
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => applyPreset("navy")}
+                    style={{
+                      background: "#15202b",
+                      color: "#ffffff",
+                      border: "1px solid #2f3336",
+                      padding: "10px 14px",
+                      borderRadius: "9999px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    紺
+                  </button>
+                </div>
+
+                <div
+                  style={{
+                    display: "grid",
+                    gap: "12px",
+                  }}
+                >
+                  <input
+                    value={themeBackgroundColor}
+                    onChange={(e) => setThemeBackgroundColor(e.target.value)}
+                    placeholder="背景色 例: #15202b"
+                    style={{
+                      padding: "12px",
+                      borderRadius: "12px",
+                      border: `1px solid ${theme.border}`,
+                      background: theme.background,
+                      color: theme.text,
+                      fontSize: "15px",
+                    }}
+                  />
+
+                  <input
+                    value={themeCardColor}
+                    onChange={(e) => setThemeCardColor(e.target.value)}
+                    placeholder="カード色 例: #192734"
+                    style={{
+                      padding: "12px",
+                      borderRadius: "12px",
+                      border: `1px solid ${theme.border}`,
+                      background: theme.background,
+                      color: theme.text,
+                      fontSize: "15px",
+                    }}
+                  />
+
+                  <input
+                    value={themeTextColor}
+                    onChange={(e) => setThemeTextColor(e.target.value)}
+                    placeholder="文字色 例: #ffffff"
+                    style={{
+                      padding: "12px",
+                      borderRadius: "12px",
+                      border: `1px solid ${theme.border}`,
+                      background: theme.background,
+                      color: theme.text,
+                      fontSize: "15px",
+                    }}
+                  />
+
+                  <input
+                    value={themeAccentColor}
+                    onChange={(e) => setThemeAccentColor(e.target.value)}
+                    placeholder="アクセント色 例: #1d9bf0"
+                    style={{
+                      padding: "12px",
+                      borderRadius: "12px",
+                      border: `1px solid ${theme.border}`,
+                      background: theme.background,
+                      color: theme.text,
+                      fontSize: "15px",
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+                <button
+                  onClick={handleSaveProfile}
+                  disabled={saving || uploading}
+                  style={{
+                    alignSelf: "flex-start",
+                    background: saving || uploading ? "#375a7f" : theme.accent,
+                    color: "#ffffff",
+                    border: "none",
+                    padding: "12px 20px",
+                    borderRadius: "9999px",
+                    fontWeight: "bold",
+                    cursor: saving || uploading ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {saving ? "保存中..." : uploading ? "アップロード中..." : "保存"}
+                </button>
+
+                <button
+                  onClick={loadPage}
+                  disabled={loading}
+                  style={{
+                    alignSelf: "flex-start",
+                    background: theme.card,
+                    color: theme.text,
+                    border: `1px solid ${theme.border}`,
+                    padding: "12px 20px",
+                    borderRadius: "9999px",
+                    fontWeight: "bold",
+                    cursor: loading ? "not-allowed" : "pointer",
+                  }}
+                >
+                  再読み込み
+                </button>
+              </div>
             </div>
           )}
         </section>
@@ -497,6 +735,7 @@ export default function ProfilePage() {
               marginTop: 0,
               marginBottom: "16px",
               fontSize: "20px",
+              color: theme.text,
             }}
           >
             自分の投稿
@@ -505,10 +744,11 @@ export default function ProfilePage() {
           {loading ? (
             <div
               style={{
-                border: "1px solid #2f3336",
+                border: `1px solid ${theme.border}`,
                 borderRadius: "16px",
                 padding: "18px",
-                color: "#8899a6",
+                color: theme.muted,
+                background: theme.card,
               }}
             >
               読み込み中...
@@ -516,10 +756,11 @@ export default function ProfilePage() {
           ) : !userId ? (
             <div
               style={{
-                border: "1px solid #2f3336",
+                border: `1px solid ${theme.border}`,
                 borderRadius: "16px",
                 padding: "18px",
-                color: "#8899a6",
+                color: theme.muted,
+                background: theme.card,
               }}
             >
               ログインすると自分の投稿が表示される
@@ -527,10 +768,11 @@ export default function ProfilePage() {
           ) : posts.length === 0 ? (
             <div
               style={{
-                border: "1px solid #2f3336",
+                border: `1px solid ${theme.border}`,
                 borderRadius: "16px",
                 padding: "18px",
-                color: "#8899a6",
+                color: theme.muted,
+                background: theme.card,
               }}
             >
               まだ自分の投稿がない
@@ -547,9 +789,10 @@ export default function ProfilePage() {
                 <article
                   key={post.id}
                   style={{
-                    border: "1px solid #2f3336",
+                    border: `1px solid ${theme.border}`,
                     borderRadius: "16px",
                     padding: "18px",
+                    background: theme.card,
                   }}
                 >
                   <div
@@ -561,11 +804,11 @@ export default function ProfilePage() {
                       flexWrap: "wrap",
                     }}
                   >
-                    <span style={{ fontWeight: "bold" }}>
+                    <span style={{ fontWeight: "bold", color: theme.text }}>
                       {displayName || post.user_email || "Kazuki"}
                     </span>
-                    <span style={{ color: "#8899a6" }}>@{shownId}</span>
-                    <span style={{ color: "#8899a6", fontSize: "14px" }}>
+                    <span style={{ color: theme.muted }}>@{shownId}</span>
+                    <span style={{ color: theme.muted, fontSize: "14px" }}>
                       ・ {formatDate(post.created_at)}
                     </span>
                   </div>
@@ -577,6 +820,7 @@ export default function ProfilePage() {
                       fontSize: "17px",
                       lineHeight: 1.6,
                       whiteSpace: "pre-wrap",
+                      color: theme.text,
                     }}
                   >
                     {post.content}
@@ -584,7 +828,7 @@ export default function ProfilePage() {
 
                   <div
                     style={{
-                      color: "#8899a6",
+                      color: theme.muted,
                       fontSize: "14px",
                     }}
                   >

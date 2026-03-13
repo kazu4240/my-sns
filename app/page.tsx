@@ -20,6 +20,10 @@ type Profile = {
   display_name: string | null;
   bio: string | null;
   avatar_url: string | null;
+  theme_background_color: string | null;
+  theme_card_color: string | null;
+  theme_text_color: string | null;
+  theme_accent_color: string | null;
 };
 
 type NotificationInsert = {
@@ -28,6 +32,12 @@ type NotificationInsert = {
   type: "like" | "reply" | "follow";
   post_id: number | null;
 };
+
+const DEFAULT_BACKGROUND = "#15202b";
+const DEFAULT_CARD = "#192734";
+const DEFAULT_TEXT = "#ffffff";
+const DEFAULT_ACCENT = "#1d9bf0";
+const DEFAULT_BORDER = "#2f3336";
 
 export default function Home() {
   const [posts, setPosts] = useState<Post[]>([]);
@@ -44,13 +54,36 @@ export default function Home() {
   const [errorMessage, setErrorMessage] = useState("");
   const [unreadNotifications, setUnreadNotifications] = useState(0);
 
-  const [searchKeyword, setSearchKeyword] = useState("");
-  const [searchResults, setSearchResults] = useState<Profile[]>([]);
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [searched, setSearched] = useState(false);
-
   const maxLength = 140;
   const remaining = useMemo(() => maxLength - text.length, [text]);
+
+  const currentTheme = useMemo(() => {
+    if (!userId || !profiles[userId]) {
+      return {
+        background: DEFAULT_BACKGROUND,
+        card: DEFAULT_CARD,
+        text: DEFAULT_TEXT,
+        accent: DEFAULT_ACCENT,
+        border: DEFAULT_BORDER,
+        muted: "#8899a6",
+        softText: "#cfd9de",
+      };
+    }
+
+    const me = profiles[userId];
+
+    const textColor = me.theme_text_color || DEFAULT_TEXT;
+
+    return {
+      background: me.theme_background_color || DEFAULT_BACKGROUND,
+      card: me.theme_card_color || DEFAULT_CARD,
+      text: textColor,
+      accent: me.theme_accent_color || DEFAULT_ACCENT,
+      border: DEFAULT_BORDER,
+      muted: textColor === "#000000" ? "#555555" : "#8899a6",
+      softText: textColor === "#000000" ? "#444444" : "#cfd9de",
+    };
+  }, [profiles, userId]);
 
   const rootPosts = useMemo(() => {
     return posts.filter((post) => post.parent_id === null);
@@ -159,7 +192,9 @@ export default function Home() {
 
       const { data: profileData, error: profileError } = await supabase
         .from("profiles")
-        .select("user_id, display_name, bio, avatar_url")
+        .select(
+          "user_id, display_name, bio, avatar_url, theme_background_color, theme_card_color, theme_text_color, theme_accent_color"
+        )
         .in("user_id", userIds);
 
       if (profileError) {
@@ -184,35 +219,6 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const searchUsers = async (word: string) => {
-    const trimmed = word.trim();
-
-    if (!trimmed) {
-      setSearchResults([]);
-      setSearched(false);
-      return;
-    }
-
-    setSearchLoading(true);
-    setSearched(true);
-
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("user_id, display_name, bio, avatar_url")
-      .ilike("display_name", `%${trimmed}%`)
-      .order("display_name", { ascending: true })
-      .limit(8);
-
-    if (error) {
-      console.error("検索エラー:", error.message);
-      setSearchResults([]);
-    } else {
-      setSearchResults((data ?? []) as Profile[]);
-    }
-
-    setSearchLoading(false);
   };
 
   const checkUser = async () => {
@@ -245,14 +251,6 @@ export default function Home() {
 
     init();
   }, []);
-
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      searchUsers(searchKeyword);
-    }, 400);
-
-    return () => clearTimeout(timeout);
-  }, [searchKeyword]);
 
   const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;
@@ -560,7 +558,7 @@ export default function Home() {
           display: "flex",
           gap: "14px",
           padding: isReply ? "14px 0 0 0" : "18px 20px",
-          borderBottom: isReply ? "none" : "1px solid #2f3336",
+          borderBottom: isReply ? "none" : `1px solid ${currentTheme.border}`,
           marginLeft: isReply ? "20px" : "0",
         }}
       >
@@ -575,7 +573,7 @@ export default function Home() {
                 borderRadius: "9999px",
                 objectFit: "cover",
                 flexShrink: 0,
-                border: "1px solid #2f3336",
+                border: `1px solid ${currentTheme.border}`,
               }}
             />
           </Link>
@@ -586,13 +584,13 @@ export default function Home() {
               width: isReply ? "40px" : "48px",
               height: isReply ? "40px" : "48px",
               borderRadius: "9999px",
-              background: "#1d9bf0",
+              background: currentTheme.accent,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               fontWeight: "bold",
               flexShrink: 0,
-              color: "white",
+              color: "#ffffff",
               textDecoration: "none",
             }}
           >
@@ -614,21 +612,23 @@ export default function Home() {
               href={profileHref}
               style={{
                 fontWeight: "bold",
-                color: "white",
+                color: currentTheme.text,
                 textDecoration: "none",
               }}
             >
               {getDisplayName(post)}
             </Link>
 
-            <span style={{ color: "#8899a6" }}>@{getUsername(post)}</span>
+            <span style={{ color: currentTheme.muted }}>@{getUsername(post)}</span>
 
-            <span style={{ color: "#8899a6", fontSize: "14px" }}>
+            <span style={{ color: currentTheme.muted, fontSize: "14px" }}>
               ・ {formatDate(post.created_at)}
             </span>
 
             {isReply && (
-              <span style={{ color: "#1d9bf0", fontSize: "13px" }}>返信</span>
+              <span style={{ color: currentTheme.accent, fontSize: "13px" }}>
+                返信
+              </span>
             )}
           </div>
 
@@ -639,6 +639,7 @@ export default function Home() {
               whiteSpace: "pre-wrap",
               margin: 0,
               marginBottom: post.image_url ? "12px" : "14px",
+              color: currentTheme.text,
             }}
           >
             {post.content}
@@ -648,7 +649,7 @@ export default function Home() {
             <div
               style={{
                 marginBottom: "14px",
-                border: "1px solid #2f3336",
+                border: `1px solid ${currentTheme.border}`,
                 borderRadius: "16px",
                 overflow: "hidden",
               }}
@@ -671,8 +672,8 @@ export default function Home() {
               onClick={() => handleLike(post)}
               style={{
                 background: "transparent",
-                color: "#8899a6",
-                border: "1px solid #2f3336",
+                color: currentTheme.muted,
+                border: `1px solid ${currentTheme.border}`,
                 padding: "8px 14px",
                 borderRadius: "9999px",
                 cursor: "pointer",
@@ -687,8 +688,8 @@ export default function Home() {
                 onClick={() => handleReply(post)}
                 style={{
                   background: "transparent",
-                  color: "#1d9bf0",
-                  border: "1px solid #2f3336",
+                  color: currentTheme.accent,
+                  border: `1px solid ${currentTheme.border}`,
                   padding: "8px 14px",
                   borderRadius: "9999px",
                   cursor: "pointer",
@@ -706,7 +707,7 @@ export default function Home() {
                   style={{
                     background: "transparent",
                     color: "#ffd166",
-                    border: "1px solid #2f3336",
+                    border: `1px solid ${currentTheme.border}`,
                     padding: "8px 14px",
                     borderRadius: "9999px",
                     cursor: "pointer",
@@ -721,7 +722,7 @@ export default function Home() {
                   style={{
                     background: "transparent",
                     color: "#ff6b6b",
-                    border: "1px solid #2f3336",
+                    border: `1px solid ${currentTheme.border}`,
                     padding: "8px 14px",
                     borderRadius: "9999px",
                     cursor: "pointer",
@@ -739,7 +740,7 @@ export default function Home() {
               style={{
                 marginTop: "12px",
                 paddingTop: "4px",
-                borderTop: "1px solid #22303c",
+                borderTop: `1px solid ${currentTheme.border}`,
               }}
             >
               {replies.map((reply) => renderPostCard(reply, true))}
@@ -754,8 +755,8 @@ export default function Home() {
     <main
       style={{
         minHeight: "100vh",
-        background: "#15202b",
-        color: "white",
+        background: currentTheme.background,
+        color: currentTheme.text,
         fontFamily: "sans-serif",
       }}
     >
@@ -763,19 +764,18 @@ export default function Home() {
         style={{
           maxWidth: "680px",
           margin: "0 auto",
-          borderLeft: "1px solid #2f3336",
-          borderRight: "1px solid #2f3336",
+          borderLeft: `1px solid ${currentTheme.border}`,
+          borderRight: `1px solid ${currentTheme.border}`,
           minHeight: "100vh",
-          background: "#15202b",
+          background: currentTheme.background,
         }}
       >
         <header
           style={{
             position: "sticky",
             top: 0,
-            background: "rgba(21,32,43,0.95)",
-            backdropFilter: "blur(8px)",
-            borderBottom: "1px solid #2f3336",
+            background: currentTheme.background,
+            borderBottom: `1px solid ${currentTheme.border}`,
             padding: "18px 20px",
             zIndex: 10,
           }}
@@ -793,16 +793,17 @@ export default function Home() {
               style={{
                 fontSize: "24px",
                 fontWeight: "bold",
+                color: currentTheme.text,
               }}
             >
               Kazuki SNS
             </span>
 
-            <div style={{ display: "flex", gap: "14px", alignItems: "center", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: "14px", alignItems: "center" }}>
               <Link
                 href="/notifications"
                 style={{
-                  color: "#1d9bf0",
+                  color: currentTheme.accent,
                   textDecoration: "none",
                   fontSize: "14px",
                   position: "relative",
@@ -821,7 +822,7 @@ export default function Home() {
                       padding: "0 6px",
                       borderRadius: "9999px",
                       background: "#ff4d4f",
-                      color: "white",
+                      color: "#ffffff",
                       fontSize: "12px",
                       fontWeight: "bold",
                     }}
@@ -834,7 +835,7 @@ export default function Home() {
               <Link
                 href="/profile"
                 style={{
-                  color: "#1d9bf0",
+                  color: currentTheme.accent,
                   textDecoration: "none",
                   fontSize: "14px",
                 }}
@@ -858,7 +859,7 @@ export default function Home() {
                 <span
                   style={{
                     fontSize: "13px",
-                    color: "#8899a6",
+                    color: currentTheme.muted,
                     wordBreak: "break-all",
                   }}
                 >
@@ -871,8 +872,8 @@ export default function Home() {
                     disabled={loading}
                     style={{
                       background: "transparent",
-                      color: "#1d9bf0",
-                      border: "1px solid #2f3336",
+                      color: currentTheme.accent,
+                      border: `1px solid ${currentTheme.border}`,
                       padding: "8px 14px",
                       borderRadius: "9999px",
                       cursor: loading ? "not-allowed" : "pointer",
@@ -887,7 +888,7 @@ export default function Home() {
                     style={{
                       background: "transparent",
                       color: "#ff6b6b",
-                      border: "1px solid #2f3336",
+                      border: `1px solid ${currentTheme.border}`,
                       padding: "8px 14px",
                       borderRadius: "9999px",
                       cursor: "pointer",
@@ -902,7 +903,7 @@ export default function Home() {
               <Link
                 href="/login"
                 style={{
-                  color: "#1d9bf0",
+                  color: currentTheme.accent,
                   textDecoration: "none",
                   fontSize: "14px",
                 }}
@@ -916,136 +917,9 @@ export default function Home() {
         <section
           style={{
             padding: "20px",
-            borderBottom: "1px solid #2f3336",
+            borderBottom: `1px solid ${currentTheme.border}`,
           }}
         >
-          <div style={{ marginBottom: "16px" }}>
-            <input
-              type="text"
-              placeholder="ユーザーを検索"
-              value={searchKeyword}
-              onChange={(e) => setSearchKeyword(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "14px 16px",
-                fontSize: "16px",
-                border: "1px solid #2f3336",
-                borderRadius: "14px",
-                outline: "none",
-                background: "#192734",
-                color: "white",
-                boxSizing: "border-box",
-              }}
-            />
-          </div>
-
-          {searchLoading && (
-            <div
-              style={{
-                marginBottom: "16px",
-                color: "#8899a6",
-                fontSize: "14px",
-              }}
-            >
-              検索中...
-            </div>
-          )}
-
-          {!searchLoading && searched && searchResults.length === 0 && (
-            <div
-              style={{
-                marginBottom: "16px",
-                color: "#8899a6",
-                fontSize: "14px",
-                padding: "12px 14px",
-                border: "1px solid #2f3336",
-                borderRadius: "14px",
-                background: "#192734",
-              }}
-            >
-              該当するユーザーが見つかりませんでした。
-            </div>
-          )}
-
-          {!searchLoading && searchResults.length > 0 && (
-            <div
-              style={{
-                marginBottom: "16px",
-                border: "1px solid #2f3336",
-                borderRadius: "16px",
-                overflow: "hidden",
-                background: "#192734",
-              }}
-            >
-              {searchResults.map((profile, index) => (
-                <Link
-                  key={profile.user_id}
-                  href={`/users/${profile.user_id}`}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "12px",
-                    padding: "14px",
-                    textDecoration: "none",
-                    color: "white",
-                    borderBottom:
-                      index !== searchResults.length - 1
-                        ? "1px solid #2f3336"
-                        : "none",
-                  }}
-                >
-                  {profile.avatar_url ? (
-                    <img
-                      src={profile.avatar_url}
-                      alt="avatar"
-                      style={{
-                        width: "44px",
-                        height: "44px",
-                        borderRadius: "9999px",
-                        objectFit: "cover",
-                        border: "1px solid #2f3336",
-                        flexShrink: 0,
-                      }}
-                    />
-                  ) : (
-                    <div
-                      style={{
-                        width: "44px",
-                        height: "44px",
-                        borderRadius: "9999px",
-                        background: "#1d9bf0",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontWeight: "bold",
-                        color: "white",
-                        flexShrink: 0,
-                      }}
-                    >
-                      {(profile.display_name || "K").slice(0, 1)}
-                    </div>
-                  )}
-
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontWeight: "bold", marginBottom: "4px" }}>
-                      {profile.display_name || "名前未設定"}
-                    </div>
-                    <div
-                      style={{
-                        color: "#8899a6",
-                        fontSize: "14px",
-                        whiteSpace: "pre-wrap",
-                        wordBreak: "break-word",
-                      }}
-                    >
-                      {profile.bio || "自己紹介はまだありません"}
-                    </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          )}
-
           {!userEmail && (
             <p
               style={{
@@ -1065,17 +939,35 @@ export default function Home() {
                 marginBottom: "14px",
                 padding: "12px 14px",
                 borderRadius: "14px",
-                border: "1px solid #2f3336",
-                background: "#192734",
+                border: `1px solid ${currentTheme.border}`,
+                background: currentTheme.card,
               }}
             >
-              <div style={{ fontSize: "13px", color: "#1d9bf0", marginBottom: "6px" }}>
+              <div
+                style={{
+                  fontSize: "13px",
+                  color: currentTheme.accent,
+                  marginBottom: "6px",
+                }}
+              >
                 返信先
               </div>
-              <div style={{ fontWeight: "bold", marginBottom: "6px" }}>
+              <div
+                style={{
+                  fontWeight: "bold",
+                  marginBottom: "6px",
+                  color: currentTheme.text,
+                }}
+              >
                 {getDisplayName(replyTargetPost)}
               </div>
-              <div style={{ color: "#cfd9de", fontSize: "14px", whiteSpace: "pre-wrap" }}>
+              <div
+                style={{
+                  color: currentTheme.softText,
+                  fontSize: "14px",
+                  whiteSpace: "pre-wrap",
+                }}
+              >
                 {replyTargetPost.content}
               </div>
             </div>
@@ -1092,7 +984,7 @@ export default function Home() {
                   borderRadius: "9999px",
                   objectFit: "cover",
                   flexShrink: 0,
-                  border: "1px solid #2f3336",
+                  border: `1px solid ${currentTheme.border}`,
                 }}
               />
             ) : (
@@ -1102,13 +994,13 @@ export default function Home() {
                   width: "48px",
                   height: "48px",
                   borderRadius: "9999px",
-                  background: "#1d9bf0",
+                  background: currentTheme.accent,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   fontWeight: "bold",
                   flexShrink: 0,
-                  color: "white",
+                  color: "#ffffff",
                   textDecoration: "none",
                 }}
               >
@@ -1134,7 +1026,7 @@ export default function Home() {
                   width: "100%",
                   minHeight: "110px",
                   background: "transparent",
-                  color: "white",
+                  color: currentTheme.text,
                   border: "none",
                   outline: "none",
                   resize: "none",
@@ -1147,7 +1039,7 @@ export default function Home() {
                 <div
                   style={{
                     marginTop: "12px",
-                    border: "1px solid #2f3336",
+                    border: `1px solid ${currentTheme.border}`,
                     borderRadius: "16px",
                     overflow: "hidden",
                     maxWidth: "100%",
@@ -1174,7 +1066,7 @@ export default function Home() {
                     onChange={handleImageChange}
                     disabled={!userEmail || submitting}
                     style={{
-                      color: "white",
+                      color: currentTheme.text,
                       fontSize: "14px",
                     }}
                   />
@@ -1187,7 +1079,7 @@ export default function Home() {
                         style={{
                           background: "transparent",
                           color: "#ff6b6b",
-                          border: "1px solid #2f3336",
+                          border: `1px solid ${currentTheme.border}`,
                           padding: "8px 14px",
                           borderRadius: "9999px",
                           cursor: "pointer",
@@ -1208,13 +1100,13 @@ export default function Home() {
                   alignItems: "center",
                   marginTop: "12px",
                   paddingTop: "12px",
-                  borderTop: "1px solid #2f3336",
+                  borderTop: `1px solid ${currentTheme.border}`,
                 }}
               >
                 <span
                   style={{
                     fontSize: "14px",
-                    color: remaining < 0 ? "#ff4d4f" : "#8899a6",
+                    color: remaining < 0 ? "#ff4d4f" : currentTheme.muted,
                   }}
                 >
                   {editingId !== null
@@ -1230,8 +1122,8 @@ export default function Home() {
                       onClick={handleCancelEdit}
                       style={{
                         background: "transparent",
-                        color: "#8899a6",
-                        border: "1px solid #2f3336",
+                        color: currentTheme.muted,
+                        border: `1px solid ${currentTheme.border}`,
                         padding: "10px 18px",
                         borderRadius: "9999px",
                         fontSize: "15px",
@@ -1257,8 +1149,8 @@ export default function Home() {
                         remaining < 0 ||
                         submitting
                           ? "#375a7f"
-                          : "#1d9bf0",
-                      color: "white",
+                          : currentTheme.accent,
+                      color: "#ffffff",
                       border: "none",
                       padding: "10px 18px",
                       borderRadius: "9999px",
@@ -1293,7 +1185,7 @@ export default function Home() {
               style={{
                 padding: "20px",
                 color: "#ffb4b4",
-                borderBottom: "1px solid #2f3336",
+                borderBottom: `1px solid ${currentTheme.border}`,
               }}
             >
               {errorMessage}
@@ -1301,9 +1193,9 @@ export default function Home() {
           )}
 
           {loading ? (
-            <p style={{ padding: "20px", color: "#8899a6" }}>読み込み中...</p>
+            <p style={{ padding: "20px", color: currentTheme.muted }}>読み込み中...</p>
           ) : rootPosts.length === 0 ? (
-            <p style={{ padding: "20px", color: "#8899a6" }}>まだ投稿がない</p>
+            <p style={{ padding: "20px", color: currentTheme.muted }}>まだ投稿がない</p>
           ) : (
             rootPosts.map((post) => renderPostCard(post))
           )}
