@@ -238,28 +238,30 @@ export default function UserProfilePage({
         minHeight: "100vh",
         background: "#15202b",
         color: "white",
-        fontFamily: "sans-serif",
+        fontFamily:
+          'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
       }}
     >
       <div
         style={{
-          maxWidth: "680px",
+          maxWidth: "720px",
           margin: "0 auto",
           borderLeft: "1px solid #2f3336",
           borderRight: "1px solid #2f3336",
           minHeight: "100vh",
           background: "#15202b",
+          boxShadow: "0 0 0 1px rgba(0,0,0,0.02)",
         }}
       >
         <header
           style={{
             position: "sticky",
             top: 0,
-            background: "rgba(21,32,43,0.95)",
-            backdropFilter: "blur(8px)",
+            background: "rgba(21,32,43,0.93)",
+            backdropFilter: "blur(14px)",
             borderBottom: "1px solid #2f3336",
-            padding: "18px 20px",
-            zIndex: 10,
+            padding: "16px 20px 14px",
+            zIndex: 20,
           }}
         >
           <Link
@@ -269,29 +271,55 @@ export default function UserProfilePage({
               textDecoration: "none",
               fontSize: "14px",
               display: "inline-block",
-              marginBottom: "8px",
+              marginBottom: "10px",
+              fontWeight: "bold",
             }}
           >
             ← ホームに戻る
           </Link>
 
-          <h1
+          <div
             style={{
-              margin: 0,
-              fontSize: "24px",
-              fontWeight: "bold",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "flex-start",
+              gap: "16px",
+              flexWrap: "wrap",
             }}
           >
-            ユーザープロフィール
-          </h1>
+            <div>
+              <div
+                style={{
+                  fontSize: "26px",
+                  fontWeight: 800,
+                  letterSpacing: "-0.02em",
+                  marginBottom: "6px",
+                }}
+              >
+                Ulein
+              </div>
+
+              <div
+                style={{
+                  color: "#8899a6",
+                  fontSize: "14px",
+                }}
+              >
+                ユーザープロフィール
+              </div>
+            </div>
+          </div>
         </header>
 
         {errorMessage && (
           <div
             style={{
-              padding: "20px",
+              margin: "18px 20px 0",
+              padding: "14px 16px",
               color: "#ffb4b4",
-              borderBottom: "1px solid #2f3336",
+              border: "1px solid rgba(255,107,107,0.25)",
+              background: "rgba(255,107,107,0.08)",
+              borderRadius: "18px",
             }}
           >
             {errorMessage}
@@ -300,153 +328,211 @@ export default function UserProfilePage({
 
         <section
           style={{
-            padding: "24px 20px",
+            padding: "22px 20px 20px",
             borderBottom: "1px solid #2f3336",
           }}
         >
-          {shownAvatarUrl ? (
-            <img
-              src={shownAvatarUrl}
-              alt="avatar"
-              style={{
-                width: "88px",
-                height: "88px",
-                borderRadius: "9999px",
-                objectFit: "cover",
-                marginBottom: "16px",
-                border: "2px solid #2f3336",
-              }}
-            />
-          ) : (
+          <div
+            style={{
+              background: "#192734",
+              border: "1px solid #2f3336",
+              borderRadius: "24px",
+              padding: "20px",
+              boxShadow: "0 12px 32px rgba(0,0,0,0.10)",
+            }}
+          >
             <div
               style={{
-                width: "88px",
-                height: "88px",
-                borderRadius: "9999px",
-                background: "#1d9bf0",
                 display: "flex",
+                gap: "18px",
                 alignItems: "center",
-                justifyContent: "center",
-                fontSize: "32px",
-                fontWeight: "bold",
-                marginBottom: "16px",
+                flexWrap: "wrap",
               }}
             >
-              {shownName.charAt(0).toUpperCase()}
+              {shownAvatarUrl ? (
+                <img
+                  src={shownAvatarUrl}
+                  alt="avatar"
+                  style={{
+                    width: "92px",
+                    height: "92px",
+                    borderRadius: "9999px",
+                    objectFit: "cover",
+                    border: "2px solid #2f3336",
+                    boxShadow: "0 8px 20px rgba(0,0,0,0.14)",
+                  }}
+                />
+              ) : (
+                <div
+                  style={{
+                    width: "92px",
+                    height: "92px",
+                    borderRadius: "9999px",
+                    background: "#1d9bf0",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "34px",
+                    fontWeight: "bold",
+                    color: "#ffffff",
+                    boxShadow: "0 8px 20px rgba(0,0,0,0.14)",
+                  }}
+                >
+                  {shownName.charAt(0).toUpperCase()}
+                </div>
+              )}
+
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <h1
+                  style={{
+                    margin: 0,
+                    fontSize: "30px",
+                    fontWeight: 800,
+                    letterSpacing: "-0.02em",
+                    wordBreak: "break-all",
+                  }}
+                >
+                  {shownName}
+                </h1>
+
+                <div
+                  style={{
+                    marginTop: "6px",
+                    marginBottom: "14px",
+                    color: "#8899a6",
+                    fontSize: "15px",
+                    wordBreak: "break-all",
+                  }}
+                >
+                  @{shownId}
+                </div>
+
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: "15px",
+                    lineHeight: 1.7,
+                    whiteSpace: "pre-wrap",
+                    color: "#cfd9de",
+                    wordBreak: "break-word",
+                  }}
+                >
+                  {shownBio}
+                </p>
+              </div>
             </div>
-          )}
 
-          <h2
-            style={{
-              margin: 0,
-              fontSize: "28px",
-              fontWeight: "bold",
-              wordBreak: "break-all",
-            }}
-          >
-            {shownName}
-          </h2>
+            <div
+              style={{
+                display: "flex",
+                gap: "12px",
+                flexWrap: "wrap",
+                marginTop: "18px",
+                alignItems: "center",
+              }}
+            >
+              <Link
+                href={`/users/${userId}/followers`}
+                style={{
+                  color: "#cfd9de",
+                  textDecoration: "none",
+                  border: "1px solid #2f3336",
+                  background: "#15202b",
+                  padding: "10px 14px",
+                  borderRadius: "9999px",
+                  fontSize: "14px",
+                  fontWeight: "bold",
+                }}
+              >
+                <strong>{followersCount}</strong> フォロワー
+              </Link>
 
-          <p
-            style={{
-              marginTop: "6px",
-              marginBottom: "14px",
-              color: "#8899a6",
-              fontSize: "16px",
-            }}
-          >
-            @{shownId}
-          </p>
+              <Link
+                href={`/users/${userId}/following`}
+                style={{
+                  color: "#cfd9de",
+                  textDecoration: "none",
+                  border: "1px solid #2f3336",
+                  background: "#15202b",
+                  padding: "10px 14px",
+                  borderRadius: "9999px",
+                  fontSize: "14px",
+                  fontWeight: "bold",
+                }}
+              >
+                <strong>{followingCount}</strong> フォロー中
+              </Link>
 
-          <p
-            style={{
-              margin: 0,
-              marginBottom: "16px",
-              fontSize: "16px",
-              lineHeight: 1.7,
-              whiteSpace: "pre-wrap",
-            }}
-          >
-            {shownBio}
-          </p>
+              {!isMyPage && (
+                <button
+                  onClick={handleFollowToggle}
+                  disabled={followLoading}
+                  style={{
+                    background: isFollowing ? "#22303c" : "#1d9bf0",
+                    color: "white",
+                    border: isFollowing ? "1px solid #2f3336" : "none",
+                    padding: "11px 18px",
+                    borderRadius: "9999px",
+                    fontSize: "14px",
+                    fontWeight: 800,
+                    cursor: followLoading ? "not-allowed" : "pointer",
+                    boxShadow: isFollowing
+                      ? "none"
+                      : "0 8px 20px rgba(29,155,240,0.28)",
+                  }}
+                >
+                  {followLoading
+                    ? "処理中..."
+                    : isFollowing
+                    ? "フォロー中"
+                    : "フォロー"}
+                </button>
+              )}
+            </div>
+          </div>
+        </section>
 
+        <section style={{ padding: "20px" }}>
           <div
             style={{
               display: "flex",
-              gap: "18px",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "12px",
+              marginBottom: "16px",
               flexWrap: "wrap",
-              marginBottom: "16px",
-              color: "#cfd9de",
-              fontSize: "14px",
             }}
           >
-            <Link
-              href={`/users/${userId}/followers`}
+            <h2
               style={{
-                color: "#cfd9de",
-                textDecoration: "none",
+                margin: 0,
+                fontSize: "22px",
+                fontWeight: 800,
+                letterSpacing: "-0.02em",
               }}
             >
-              <strong>{followersCount}</strong> フォロワー
-            </Link>
+              この人の投稿
+            </h2>
 
-            <Link
-              href={`/users/${userId}/following`}
+            <div
               style={{
-                color: "#cfd9de",
-                textDecoration: "none",
-              }}
-            >
-              <strong>{followingCount}</strong> フォロー中
-            </Link>
-          </div>
-
-          {!isMyPage && (
-            <button
-              onClick={handleFollowToggle}
-              disabled={followLoading}
-              style={{
-                background: isFollowing ? "#22303c" : "#1d9bf0",
-                color: "white",
-                border: isFollowing ? "1px solid #2f3336" : "none",
-                padding: "10px 18px",
-                borderRadius: "9999px",
-                fontSize: "15px",
+                color: "#8899a6",
+                fontSize: "13px",
                 fontWeight: "bold",
-                cursor: followLoading ? "not-allowed" : "pointer",
               }}
             >
-              {followLoading
-                ? "処理中..."
-                : isFollowing
-                ? "フォロー中"
-                : "フォロー"}
-            </button>
-          )}
-        </section>
-
-        <section
-          style={{
-            padding: "20px",
-          }}
-        >
-          <h3
-            style={{
-              marginTop: 0,
-              marginBottom: "16px",
-              fontSize: "20px",
-            }}
-          >
-            この人の投稿
-          </h3>
+              最新20件
+            </div>
+          </div>
 
           {loading ? (
             <div
               style={{
                 border: "1px solid #2f3336",
-                borderRadius: "16px",
+                borderRadius: "18px",
                 padding: "18px",
                 color: "#8899a6",
+                background: "#192734",
               }}
             >
               読み込み中...
@@ -455,9 +541,10 @@ export default function UserProfilePage({
             <div
               style={{
                 border: "1px solid #2f3336",
-                borderRadius: "16px",
+                borderRadius: "18px",
                 padding: "18px",
                 color: "#8899a6",
+                background: "#192734",
               }}
             >
               まだ投稿がない
@@ -475,8 +562,10 @@ export default function UserProfilePage({
                   key={post.id}
                   style={{
                     border: "1px solid #2f3336",
-                    borderRadius: "16px",
+                    borderRadius: "20px",
                     padding: "18px",
+                    background: "#192734",
+                    boxShadow: "0 10px 28px rgba(0,0,0,0.08)",
                   }}
                 >
                   <div
@@ -488,9 +577,11 @@ export default function UserProfilePage({
                       flexWrap: "wrap",
                     }}
                   >
-                    <span style={{ fontWeight: "bold" }}>{shownName}</span>
+                    <span style={{ fontWeight: "bold", color: "white" }}>
+                      {shownName}
+                    </span>
                     <span style={{ color: "#8899a6" }}>@{shownId}</span>
-                    <span style={{ color: "#8899a6", fontSize: "14px" }}>
+                    <span style={{ color: "#8899a6", fontSize: "13px" }}>
                       ・ {formatDate(post.created_at)}
                     </span>
                   </div>
@@ -500,8 +591,10 @@ export default function UserProfilePage({
                       margin: 0,
                       marginBottom: post.image_url ? "12px" : "0",
                       fontSize: "17px",
-                      lineHeight: 1.6,
+                      lineHeight: 1.75,
                       whiteSpace: "pre-wrap",
+                      wordBreak: "break-word",
+                      color: "white",
                     }}
                   >
                     {post.content}
@@ -512,8 +605,9 @@ export default function UserProfilePage({
                       style={{
                         marginTop: "12px",
                         border: "1px solid #2f3336",
-                        borderRadius: "16px",
+                        borderRadius: "18px",
                         overflow: "hidden",
+                        background: "#15202b",
                       }}
                     >
                       <img
@@ -534,6 +628,7 @@ export default function UserProfilePage({
                       marginTop: "12px",
                       color: "#8899a6",
                       fontSize: "14px",
+                      fontWeight: "bold",
                     }}
                   >
                     ❤️ いいね {post.likes}
