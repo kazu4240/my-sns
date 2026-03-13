@@ -397,18 +397,21 @@ export default function NotificationsPage() {
                     </p>
 
                     {relatedPost && (
-                      <div
+                      <Link
+                        href={`/posts/${relatedPost.id}`}
                         style={{
+                          display: "block",
                           border: "1px solid #2f3336",
                           borderRadius: "14px",
                           padding: "12px",
                           color: "#cfd9de",
                           fontSize: "14px",
                           whiteSpace: "pre-wrap",
+                          textDecoration: "none",
                         }}
                       >
                         {relatedPost.content}
-                      </div>
+                      </Link>
                     )}
                   </div>
                 </article>
