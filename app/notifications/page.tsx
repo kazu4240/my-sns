@@ -200,34 +200,48 @@ export default function NotificationsPage() {
     return "あなたをフォローしました";
   };
 
+  const getNotificationLabel = (item: Notification) => {
+    if (item.type === "like") return "いいね";
+    if (item.type === "reply") return "返信";
+    return "フォロー";
+  };
+
+  const getNotificationAccent = (item: Notification) => {
+    if (item.type === "like") return "#ff6b81";
+    if (item.type === "reply") return "#1d9bf0";
+    return "#22c55e";
+  };
+
   return (
     <main
       style={{
         minHeight: "100vh",
         background: "#15202b",
         color: "white",
-        fontFamily: "sans-serif",
+        fontFamily:
+          'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
       }}
     >
       <div
         style={{
-          maxWidth: "680px",
+          maxWidth: "720px",
           margin: "0 auto",
           borderLeft: "1px solid #2f3336",
           borderRight: "1px solid #2f3336",
           minHeight: "100vh",
           background: "#15202b",
+          boxShadow: "0 0 0 1px rgba(0,0,0,0.02)",
         }}
       >
         <header
           style={{
             position: "sticky",
             top: 0,
-            background: "rgba(21,32,43,0.95)",
-            backdropFilter: "blur(8px)",
+            background: "rgba(21,32,43,0.93)",
+            backdropFilter: "blur(14px)",
             borderBottom: "1px solid #2f3336",
-            padding: "18px 20px",
-            zIndex: 10,
+            padding: "16px 20px 14px",
+            zIndex: 20,
           }}
         >
           <Link
@@ -237,7 +251,8 @@ export default function NotificationsPage() {
               textDecoration: "none",
               fontSize: "14px",
               display: "inline-block",
-              marginBottom: "8px",
+              marginBottom: "10px",
+              fontWeight: "bold",
             }}
           >
             ← ホームに戻る
@@ -247,176 +262,255 @@ export default function NotificationsPage() {
             style={{
               display: "flex",
               justifyContent: "space-between",
-              alignItems: "center",
-              gap: "12px",
+              alignItems: "flex-start",
+              gap: "16px",
               flexWrap: "wrap",
             }}
           >
-            <h1
-              style={{
-                margin: 0,
-                fontSize: "24px",
-                fontWeight: "bold",
-              }}
-            >
-              通知
-            </h1>
+            <div>
+              <div
+                style={{
+                  fontSize: "26px",
+                  fontWeight: 800,
+                  letterSpacing: "-0.02em",
+                  marginBottom: "6px",
+                }}
+              >
+                Ulein
+              </div>
+
+              <div
+                style={{
+                  color: "#8899a6",
+                  fontSize: "14px",
+                }}
+              >
+                未読 {unreadCount} 件
+              </div>
+            </div>
 
             <button
               onClick={markAllAsRead}
               style={{
-                background: "transparent",
+                background: "#192734",
                 color: "#1d9bf0",
                 border: "1px solid #2f3336",
-                padding: "8px 14px",
+                padding: "10px 16px",
                 borderRadius: "9999px",
                 cursor: "pointer",
-                fontSize: "14px",
+                fontSize: "13px",
+                fontWeight: "bold",
+                boxShadow: "0 8px 20px rgba(0,0,0,0.10)",
               }}
             >
-              既読にする
+              すべて既読にする
             </button>
           </div>
-
-          <p
-            style={{
-              marginTop: "8px",
-              marginBottom: 0,
-              color: "#8899a6",
-              fontSize: "14px",
-            }}
-          >
-            未読 {unreadCount} 件
-          </p>
         </header>
 
         {errorMessage && (
           <div
             style={{
-              padding: "20px",
+              margin: "18px 20px 0",
+              padding: "14px 16px",
               color: "#ffb4b4",
-              borderBottom: "1px solid #2f3336",
+              border: "1px solid rgba(255,107,107,0.25)",
+              background: "rgba(255,107,107,0.08)",
+              borderRadius: "18px",
             }}
           >
             {errorMessage}
           </div>
         )}
 
-        <section>
+        <section style={{ padding: "18px 20px 24px" }}>
           {loading ? (
-            <p style={{ padding: "20px", color: "#8899a6" }}>読み込み中...</p>
+            <div
+              style={{
+                border: "1px solid #2f3336",
+                borderRadius: "20px",
+                padding: "18px",
+                color: "#8899a6",
+                background: "#192734",
+              }}
+            >
+              読み込み中...
+            </div>
           ) : notifications.length === 0 ? (
-            <p style={{ padding: "20px", color: "#8899a6" }}>まだ通知がない</p>
+            <div
+              style={{
+                border: "1px solid #2f3336",
+                borderRadius: "20px",
+                padding: "22px",
+                color: "#8899a6",
+                background: "#192734",
+                textAlign: "center",
+                boxShadow: "0 10px 28px rgba(0,0,0,0.08)",
+              }}
+            >
+              まだ通知がない
+            </div>
           ) : (
-            notifications.map((item) => {
-              const actorHref = `/users/${item.actor_user_id}`;
-              const actorAvatar = getActorAvatar(item.actor_user_id);
-              const relatedPost = item.post_id ? posts[item.post_id] : null;
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "14px",
+              }}
+            >
+              {notifications.map((item) => {
+                const actorHref = `/users/${item.actor_user_id}`;
+                const actorAvatar = getActorAvatar(item.actor_user_id);
+                const relatedPost = item.post_id ? posts[item.post_id] : null;
+                const accentColor = getNotificationAccent(item);
 
-              return (
-                <article
-                  key={item.id}
-                  style={{
-                    display: "flex",
-                    gap: "14px",
-                    padding: "18px 20px",
-                    borderBottom: "1px solid #2f3336",
-                    background: item.is_read ? "transparent" : "#162d3d",
-                  }}
-                >
-                  {actorAvatar ? (
-                    <Link href={actorHref}>
-                      <img
-                        src={actorAvatar}
-                        alt="avatar"
-                        style={{
-                          width: "48px",
-                          height: "48px",
-                          borderRadius: "9999px",
-                          objectFit: "cover",
-                          border: "1px solid #2f3336",
-                        }}
-                      />
-                    </Link>
-                  ) : (
-                    <Link
-                      href={actorHref}
-                      style={{
-                        width: "48px",
-                        height: "48px",
-                        borderRadius: "9999px",
-                        background: "#1d9bf0",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontWeight: "bold",
-                        color: "white",
-                        textDecoration: "none",
-                        flexShrink: 0,
-                      }}
-                    >
-                      {getActorName(item.actor_user_id).charAt(0).toUpperCase()}
-                    </Link>
-                  )}
-
-                  <div style={{ flex: 1 }}>
-                    <div
-                      style={{
-                        display: "flex",
-                        gap: "8px",
-                        alignItems: "center",
-                        flexWrap: "wrap",
-                        marginBottom: "8px",
-                      }}
-                    >
+                return (
+                  <article
+                    key={item.id}
+                    style={{
+                      display: "flex",
+                      gap: "14px",
+                      padding: "18px",
+                      border: item.is_read
+                        ? "1px solid #2f3336"
+                        : `1px solid ${accentColor}55`,
+                      borderRadius: "22px",
+                      background: item.is_read ? "#192734" : "#173144",
+                      boxShadow: item.is_read
+                        ? "0 10px 28px rgba(0,0,0,0.08)"
+                        : "0 12px 30px rgba(0,0,0,0.12)",
+                    }}
+                  >
+                    {actorAvatar ? (
+                      <Link href={actorHref} style={{ flexShrink: 0 }}>
+                        <img
+                          src={actorAvatar}
+                          alt="avatar"
+                          style={{
+                            width: "52px",
+                            height: "52px",
+                            borderRadius: "9999px",
+                            objectFit: "cover",
+                            border: "1px solid #2f3336",
+                            display: "block",
+                            boxShadow: "0 6px 18px rgba(0,0,0,0.14)",
+                          }}
+                        />
+                      </Link>
+                    ) : (
                       <Link
                         href={actorHref}
                         style={{
-                          color: "white",
+                          width: "52px",
+                          height: "52px",
+                          borderRadius: "9999px",
+                          background: accentColor,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
                           fontWeight: "bold",
+                          color: "white",
                           textDecoration: "none",
+                          flexShrink: 0,
+                          boxShadow: "0 6px 18px rgba(0,0,0,0.14)",
                         }}
                       >
-                        {getActorName(item.actor_user_id)}
-                      </Link>
-
-                      <span style={{ color: "#8899a6", fontSize: "14px" }}>
-                        ・ {formatDate(item.created_at)}
-                      </span>
-                    </div>
-
-                    <p
-                      style={{
-                        margin: 0,
-                        marginBottom: relatedPost ? "10px" : "0",
-                        color: "white",
-                        lineHeight: 1.6,
-                      }}
-                    >
-                      {getNotificationText(item)}
-                    </p>
-
-                    {relatedPost && (
-                      <Link
-                        href={`/posts/${relatedPost.id}`}
-                        style={{
-                          display: "block",
-                          border: "1px solid #2f3336",
-                          borderRadius: "14px",
-                          padding: "12px",
-                          color: "#cfd9de",
-                          fontSize: "14px",
-                          whiteSpace: "pre-wrap",
-                          textDecoration: "none",
-                        }}
-                      >
-                        {relatedPost.content}
+                        {getActorName(item.actor_user_id).charAt(0).toUpperCase()}
                       </Link>
                     )}
-                  </div>
-                </article>
-              );
-            })
+
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: "8px",
+                          alignItems: "center",
+                          flexWrap: "wrap",
+                          marginBottom: "10px",
+                        }}
+                      >
+                        <Link
+                          href={actorHref}
+                          style={{
+                            color: "white",
+                            fontWeight: "bold",
+                            textDecoration: "none",
+                            fontSize: "15px",
+                          }}
+                        >
+                          {getActorName(item.actor_user_id)}
+                        </Link>
+
+                        <span
+                          style={{
+                            fontSize: "12px",
+                            fontWeight: "bold",
+                            padding: "4px 8px",
+                            borderRadius: "9999px",
+                            background: `${accentColor}22`,
+                            color: accentColor,
+                          }}
+                        >
+                          {getNotificationLabel(item)}
+                        </span>
+
+                        {!item.is_read && (
+                          <span
+                            style={{
+                              fontSize: "12px",
+                              fontWeight: "bold",
+                              padding: "4px 8px",
+                              borderRadius: "9999px",
+                              background: "rgba(255,255,255,0.08)",
+                              color: "#ffffff",
+                            }}
+                          >
+                            未読
+                          </span>
+                        )}
+
+                        <span style={{ color: "#8899a6", fontSize: "13px" }}>
+                          ・ {formatDate(item.created_at)}
+                        </span>
+                      </div>
+
+                      <p
+                        style={{
+                          margin: 0,
+                          marginBottom: relatedPost ? "12px" : "0",
+                          color: "white",
+                          lineHeight: 1.7,
+                          fontSize: "15px",
+                        }}
+                      >
+                        {getNotificationText(item)}
+                      </p>
+
+                      {relatedPost && (
+                        <Link
+                          href={`/posts/${relatedPost.id}`}
+                          style={{
+                            display: "block",
+                            border: "1px solid #2f3336",
+                            borderRadius: "16px",
+                            padding: "14px",
+                            color: "#cfd9de",
+                            fontSize: "14px",
+                            whiteSpace: "pre-wrap",
+                            textDecoration: "none",
+                            background: "#15202b",
+                            lineHeight: 1.7,
+                            wordBreak: "break-word",
+                          }}
+                        >
+                          {relatedPost.content}
+                        </Link>
+                      )}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
           )}
         </section>
       </div>
