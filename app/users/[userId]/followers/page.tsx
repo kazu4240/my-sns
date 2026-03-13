@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import { use, useEffect, useState } from "react";
-import { supabase } from "../../../../lib/supabase";
+import { supabase } from  "../../../../lib/supabase";
+<div styleName={} />
+<div styleName={} />
+<div styleName={} />lib/supabase";
 
 type FollowRow = {
   follower_user_id: string;
@@ -153,28 +156,30 @@ export default function FollowersPage({
         minHeight: "100vh",
         background: "#15202b",
         color: "white",
-        fontFamily: "sans-serif",
+        fontFamily:
+          'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
       }}
     >
       <div
         style={{
-          maxWidth: "680px",
+          maxWidth: "720px",
           margin: "0 auto",
           borderLeft: "1px solid #2f3336",
           borderRight: "1px solid #2f3336",
           minHeight: "100vh",
           background: "#15202b",
+          boxShadow: "0 0 0 1px rgba(0,0,0,0.02)",
         }}
       >
         <header
           style={{
             position: "sticky",
             top: 0,
-            background: "rgba(21,32,43,0.95)",
-            backdropFilter: "blur(8px)",
+            background: "rgba(21,32,43,0.93)",
+            backdropFilter: "blur(14px)",
             borderBottom: "1px solid #2f3336",
-            padding: "18px 20px",
-            zIndex: 10,
+            padding: "16px 20px 14px",
+            zIndex: 20,
           }}
         >
           <Link
@@ -184,134 +189,182 @@ export default function FollowersPage({
               textDecoration: "none",
               fontSize: "14px",
               display: "inline-block",
-              marginBottom: "8px",
+              marginBottom: "10px",
+              fontWeight: "bold",
             }}
           >
             ← プロフィールに戻る
           </Link>
 
-          <h1
+          <div
             style={{
-              margin: 0,
-              fontSize: "24px",
-              fontWeight: "bold",
+              fontSize: "26px",
+              fontWeight: 800,
+              letterSpacing: "-0.02em",
+              marginBottom: "6px",
+            }}
+          >
+            Ulein
+          </div>
+
+          <div
+            style={{
+              color: "#8899a6",
+              fontSize: "14px",
             }}
           >
             フォロワー一覧
-          </h1>
+          </div>
         </header>
 
         {errorMessage && (
           <div
             style={{
-              padding: "20px",
+              margin: "18px 20px 0",
+              padding: "14px 16px",
               color: "#ffb4b4",
-              borderBottom: "1px solid #2f3336",
+              border: "1px solid rgba(255,107,107,0.25)",
+              background: "rgba(255,107,107,0.08)",
+              borderRadius: "18px",
             }}
           >
             {errorMessage}
           </div>
         )}
 
-        <section>
+        <section style={{ padding: "18px 20px 24px" }}>
           {loading ? (
-            <p style={{ padding: "20px", color: "#8899a6" }}>読み込み中...</p>
+            <div
+              style={{
+                border: "1px solid #2f3336",
+                borderRadius: "20px",
+                padding: "18px",
+                color: "#8899a6",
+                background: "#192734",
+              }}
+            >
+              読み込み中...
+            </div>
           ) : users.length === 0 ? (
-            <p style={{ padding: "20px", color: "#8899a6" }}>
+            <div
+              style={{
+                border: "1px solid #2f3336",
+                borderRadius: "20px",
+                padding: "22px",
+                color: "#8899a6",
+                background: "#192734",
+                textAlign: "center",
+                boxShadow: "0 10px 28px rgba(0,0,0,0.08)",
+              }}
+            >
               まだフォロワーがいません
-            </p>
+            </div>
           ) : (
-            users.map((user) => {
-              const shownName =
-                user.display_name || user.user_email?.split("@")[0] || "名前未設定";
-              const shownId = user.user_email
-                ? `@${user.user_email.split("@")[0]}`
-                : "@user";
-              const shownBio = user.bio || "自己紹介はまだありません";
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "14px",
+              }}
+            >
+              {users.map((user) => {
+                const shownName =
+                  user.display_name || user.user_email?.split("@")[0] || "名前未設定";
+                const shownId = user.user_email
+                  ? `@${user.user_email.split("@")[0]}`
+                  : "@user";
+                const shownBio = user.bio || "自己紹介はまだありません";
 
-              return (
-                <Link
-                  key={user.user_id}
-                  href={`/users/${user.user_id}`}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "12px",
-                    padding: "18px 20px",
-                    borderBottom: "1px solid #2f3336",
-                    textDecoration: "none",
-                    color: "white",
-                    background: "#15202b",
-                  }}
-                >
-                  {user.avatar_url ? (
-                    <img
-                      src={user.avatar_url}
-                      alt="avatar"
-                      style={{
-                        width: "52px",
-                        height: "52px",
-                        borderRadius: "50%",
-                        objectFit: "cover",
-                        border: "1px solid #2f3336",
-                        flexShrink: 0,
-                      }}
-                    />
-                  ) : (
-                    <div
-                      style={{
-                        width: "52px",
-                        height: "52px",
-                        borderRadius: "50%",
-                        background: "#1d9bf0",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: "20px",
-                        fontWeight: "bold",
-                        flexShrink: 0,
-                      }}
-                    >
-                      {shownName.slice(0, 1).toUpperCase()}
-                    </div>
-                  )}
+                return (
+                  <Link
+                    key={user.user_id}
+                    href={`/users/${user.user_id}`}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "14px",
+                      padding: "18px",
+                      border: "1px solid #2f3336",
+                      borderRadius: "22px",
+                      textDecoration: "none",
+                      color: "white",
+                      background: "#192734",
+                      boxShadow: "0 10px 28px rgba(0,0,0,0.08)",
+                    }}
+                  >
+                    {user.avatar_url ? (
+                      <img
+                        src={user.avatar_url}
+                        alt="avatar"
+                        style={{
+                          width: "56px",
+                          height: "56px",
+                          borderRadius: "50%",
+                          objectFit: "cover",
+                          border: "1px solid #2f3336",
+                          flexShrink: 0,
+                          boxShadow: "0 6px 18px rgba(0,0,0,0.14)",
+                        }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          width: "56px",
+                          height: "56px",
+                          borderRadius: "50%",
+                          background: "#1d9bf0",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: "20px",
+                          fontWeight: "bold",
+                          flexShrink: 0,
+                          color: "#ffffff",
+                          boxShadow: "0 6px 18px rgba(0,0,0,0.14)",
+                        }}
+                      >
+                        {shownName.slice(0, 1).toUpperCase()}
+                      </div>
+                    )}
 
-                  <div style={{ minWidth: 0 }}>
-                    <div
-                      style={{
-                        fontWeight: "bold",
-                        fontSize: "16px",
-                        marginBottom: "4px",
-                        wordBreak: "break-all",
-                      }}
-                    >
-                      {shownName}
-                    </div>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div
+                        style={{
+                          fontWeight: "bold",
+                          fontSize: "17px",
+                          marginBottom: "4px",
+                          wordBreak: "break-all",
+                        }}
+                      >
+                        {shownName}
+                      </div>
 
-                    <div
-                      style={{
-                        color: "#8899a6",
-                        fontSize: "13px",
-                        marginBottom: "4px",
-                        wordBreak: "break-all",
-                      }}
-                    >
-                      {shownId}
-                    </div>
+                      <div
+                        style={{
+                          color: "#8899a6",
+                          fontSize: "13px",
+                          marginBottom: "6px",
+                          wordBreak: "break-all",
+                        }}
+                      >
+                        {shownId}
+                      </div>
 
-                    <div
-                      style={{
-                        color: "#8899a6",
-                        fontSize: "14px",
-                        wordBreak: "break-all",
-                      }}
-                    >
-                      {shownBio}
+                      <div
+                        style={{
+                          color: "#cfd9de",
+                          fontSize: "14px",
+                          lineHeight: 1.6,
+                          wordBreak: "break-word",
+                        }}
+                      >
+                        {shownBio}
+                      </div>
                     </div>
-                  </div>
-                </Link>
-              );
-            })
+                  </Link>
+                );
+              })}
+            </div>
           )}
         </section>
       </div>
