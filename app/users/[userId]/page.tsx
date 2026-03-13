@@ -380,12 +380,25 @@ export default function UserProfilePage({
               fontSize: "14px",
             }}
           >
-            <span>
+            <Link
+              href={`/users/${userId}/followers`}
+              style={{
+                color: "#cfd9de",
+                textDecoration: "none",
+              }}
+            >
               <strong>{followersCount}</strong> フォロワー
-            </span>
-            <span>
+            </Link>
+
+            <Link
+              href={`/users/${userId}/following`}
+              style={{
+                color: "#cfd9de",
+                textDecoration: "none",
+              }}
+            >
               <strong>{followingCount}</strong> フォロー中
-            </span>
+            </Link>
           </div>
 
           {!isMyPage && (

@@ -44,6 +44,11 @@ export default function Home() {
   const [errorMessage, setErrorMessage] = useState("");
   const [unreadNotifications, setUnreadNotifications] = useState(0);
 
+  const [searchKeyword, setSearchKeyword] = useState("");
+  const [searchResults, setSearchResults] = useState<Profile[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searched, setSearched] = useState(false);
+
   const maxLength = 140;
   const remaining = useMemo(() => maxLength - text.length, [text]);
 
@@ -181,6 +186,35 @@ export default function Home() {
     }
   };
 
+  const searchUsers = async (word: string) => {
+    const trimmed = word.trim();
+
+    if (!trimmed) {
+      setSearchResults([]);
+      setSearched(false);
+      return;
+    }
+
+    setSearchLoading(true);
+    setSearched(true);
+
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("user_id, display_name, bio, avatar_url")
+      .ilike("display_name", `%${trimmed}%`)
+      .order("display_name", { ascending: true })
+      .limit(8);
+
+    if (error) {
+      console.error("検索エラー:", error.message);
+      setSearchResults([]);
+    } else {
+      setSearchResults((data ?? []) as Profile[]);
+    }
+
+    setSearchLoading(false);
+  };
+
   const checkUser = async () => {
     const {
       data: { user },
@@ -211,6 +245,14 @@ export default function Home() {
 
     init();
   }, []);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      searchUsers(searchKeyword);
+    }, 400);
+
+    return () => clearTimeout(timeout);
+  }, [searchKeyword]);
 
   const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;
@@ -756,7 +798,7 @@ export default function Home() {
               Kazuki SNS
             </span>
 
-            <div style={{ display: "flex", gap: "14px", alignItems: "center" }}>
+            <div style={{ display: "flex", gap: "14px", alignItems: "center", flexWrap: "wrap" }}>
               <Link
                 href="/notifications"
                 style={{
@@ -877,6 +919,133 @@ export default function Home() {
             borderBottom: "1px solid #2f3336",
           }}
         >
+          <div style={{ marginBottom: "16px" }}>
+            <input
+              type="text"
+              placeholder="ユーザーを検索"
+              value={searchKeyword}
+              onChange={(e) => setSearchKeyword(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "14px 16px",
+                fontSize: "16px",
+                border: "1px solid #2f3336",
+                borderRadius: "14px",
+                outline: "none",
+                background: "#192734",
+                color: "white",
+                boxSizing: "border-box",
+              }}
+            />
+          </div>
+
+          {searchLoading && (
+            <div
+              style={{
+                marginBottom: "16px",
+                color: "#8899a6",
+                fontSize: "14px",
+              }}
+            >
+              検索中...
+            </div>
+          )}
+
+          {!searchLoading && searched && searchResults.length === 0 && (
+            <div
+              style={{
+                marginBottom: "16px",
+                color: "#8899a6",
+                fontSize: "14px",
+                padding: "12px 14px",
+                border: "1px solid #2f3336",
+                borderRadius: "14px",
+                background: "#192734",
+              }}
+            >
+              該当するユーザーが見つかりませんでした。
+            </div>
+          )}
+
+          {!searchLoading && searchResults.length > 0 && (
+            <div
+              style={{
+                marginBottom: "16px",
+                border: "1px solid #2f3336",
+                borderRadius: "16px",
+                overflow: "hidden",
+                background: "#192734",
+              }}
+            >
+              {searchResults.map((profile, index) => (
+                <Link
+                  key={profile.user_id}
+                  href={`/users/${profile.user_id}`}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "12px",
+                    padding: "14px",
+                    textDecoration: "none",
+                    color: "white",
+                    borderBottom:
+                      index !== searchResults.length - 1
+                        ? "1px solid #2f3336"
+                        : "none",
+                  }}
+                >
+                  {profile.avatar_url ? (
+                    <img
+                      src={profile.avatar_url}
+                      alt="avatar"
+                      style={{
+                        width: "44px",
+                        height: "44px",
+                        borderRadius: "9999px",
+                        objectFit: "cover",
+                        border: "1px solid #2f3336",
+                        flexShrink: 0,
+                      }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        width: "44px",
+                        height: "44px",
+                        borderRadius: "9999px",
+                        background: "#1d9bf0",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontWeight: "bold",
+                        color: "white",
+                        flexShrink: 0,
+                      }}
+                    >
+                      {(profile.display_name || "K").slice(0, 1)}
+                    </div>
+                  )}
+
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontWeight: "bold", marginBottom: "4px" }}>
+                      {profile.display_name || "名前未設定"}
+                    </div>
+                    <div
+                      style={{
+                        color: "#8899a6",
+                        fontSize: "14px",
+                        whiteSpace: "pre-wrap",
+                        wordBreak: "break-word",
+                      }}
+                    >
+                      {profile.bio || "自己紹介はまだありません"}
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+
           {!userEmail && (
             <p
               style={{
