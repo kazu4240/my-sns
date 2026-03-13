@@ -836,18 +836,9 @@ export default function Home() {
                   fontWeight: 800,
                   color: currentTheme.text,
                   letterSpacing: "-0.02em",
-                  marginBottom: "4px",
                 }}
               >
-                Kazuki SNS
-              </div>
-              <div
-                style={{
-                  color: currentTheme.muted,
-                  fontSize: "13px",
-                }}
-              >
-                自分だけのテーマで遊べるSNS
+                Ulein
               </div>
             </div>
 
