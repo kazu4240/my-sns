@@ -2,10 +2,7 @@
 
 import Link from "next/link";
 import { use, useEffect, useState } from "react";
-import { supabase } from  "../../../../lib/supabase";
-<div styleName={} />
-<div styleName={} />
-<div styleName={} />lib/supabase";
+import { supabase } from "../../../../lib/supabase";
 
 type FollowRow = {
   follower_user_id: string;
