@@ -245,10 +245,21 @@ export default function AdminReportsPage() {
       const result = await response.json();
 
       if (!response.ok) {
-        alert("削除失敗: " + (result.error || "不明なエラー"));
-        setDeletingPostId(null);
-        return;
-      }
+  alert(
+    JSON.stringify(
+      {
+        error: result.error || "不明なエラー",
+        hasSupabaseUrl: result.hasSupabaseUrl,
+        hasSupabaseAnonKey: result.hasSupabaseAnonKey,
+        hasSupabaseServiceRoleKey: result.hasSupabaseServiceRoleKey,
+      },
+      null,
+      2
+    )
+  );
+  setDeletingPostId(null);
+  return;
+}
 
       setPosts((prev) => {
         const next = { ...prev };
