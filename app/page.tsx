@@ -45,6 +45,7 @@ export default function Home() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [profiles, setProfiles] = useState<Record<string, Profile>>({});
   const [followingUserIds, setFollowingUserIds] = useState<string[]>([]);
+  const [bookmarkedPostIds, setBookmarkedPostIds] = useState<number[]>([]);
   const [activeTab, setActiveTab] = useState<HomeTab>("all");
 
   const [text, setText] = useState("");
@@ -202,6 +203,30 @@ export default function Home() {
     setFollowingUserIds(ids);
   };
 
+  const fetchBookmarks = async (currentUserId?: string | null) => {
+    if (!currentUserId) {
+      setBookmarkedPostIds([]);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("bookmarks")
+      .select("post_id")
+      .eq("user_id", currentUserId);
+
+    if (error) {
+      console.error(error);
+      setBookmarkedPostIds([]);
+      return;
+    }
+
+    const ids = (data ?? [])
+      .map((item) => item.post_id)
+      .filter((value): value is number => typeof value === "number");
+
+    setBookmarkedPostIds(ids);
+  };
+
   const fetchPostsAndProfiles = async (currentUserId?: string | null) => {
     setLoading(true);
     setErrorMessage("");
@@ -238,6 +263,7 @@ export default function Home() {
         setProfiles({});
         await fetchUnreadNotifications(currentUserId);
         await fetchFollowingIds(currentUserId);
+        await fetchBookmarks(currentUserId);
         return;
       }
 
@@ -263,11 +289,13 @@ export default function Home() {
 
       await fetchUnreadNotifications(currentUserId);
       await fetchFollowingIds(currentUserId);
+      await fetchBookmarks(currentUserId);
     } catch (error) {
       console.error(error);
       setPosts([]);
       setProfiles({});
       setFollowingUserIds([]);
+      setBookmarkedPostIds([]);
       setErrorMessage("ホームの読み込みに失敗しました。再読み込みしてみて。");
     } finally {
       setLoading(false);
@@ -491,6 +519,43 @@ export default function Home() {
     }
   };
 
+  const handleToggleBookmark = async (post: Post) => {
+    if (!userId) {
+      alert("ブックマークするにはログインしてね");
+      return;
+    }
+
+    const isBookmarked = bookmarkedPostIds.includes(post.id);
+
+    if (isBookmarked) {
+      const { error } = await supabase
+        .from("bookmarks")
+        .delete()
+        .eq("user_id", userId)
+        .eq("post_id", post.id);
+
+      if (error) {
+        alert("ブックマーク解除失敗: " + error.message);
+        return;
+      }
+
+      setBookmarkedPostIds((prev) => prev.filter((id) => id !== post.id));
+      return;
+    }
+
+    const { error } = await supabase.from("bookmarks").insert({
+      user_id: userId,
+      post_id: post.id,
+    });
+
+    if (error) {
+      alert("ブックマーク失敗: " + error.message);
+      return;
+    }
+
+    setBookmarkedPostIds((prev) => [...prev, post.id]);
+  };
+
   const handleDelete = async (post: Post) => {
     if (!userId || post.user_id !== userId) {
       alert("自分の投稿だけ削除できるよ");
@@ -508,6 +573,7 @@ export default function Home() {
     }
 
     setPosts((prev) => prev.filter((item) => item.id !== post.id));
+    setBookmarkedPostIds((prev) => prev.filter((id) => id !== post.id));
 
     if (editingId === post.id || replyingToId === post.id) {
       resetComposer();
@@ -557,6 +623,7 @@ export default function Home() {
     setUserEmail(null);
     setUserId(null);
     setFollowingUserIds([]);
+    setBookmarkedPostIds([]);
     setActiveTab("all");
     resetComposer();
     setProfiles({});
@@ -612,6 +679,7 @@ export default function Home() {
     const isOwner = !!userId && post.user_id === userId;
     const replies = repliesByParent[post.id] ?? [];
     const profileHref = post.user_id ? `/users/${post.user_id}` : "/profile";
+    const isBookmarked = bookmarkedPostIds.includes(post.id);
 
     return (
       <article
@@ -796,6 +864,22 @@ export default function Home() {
                 </button>
               )}
 
+              <button
+                onClick={() => handleToggleBookmark(post)}
+                style={{
+                  background: "transparent",
+                  color: isBookmarked ? "#ffd166" : currentTheme.muted,
+                  border: `1px solid ${currentTheme.border}`,
+                  padding: "8px 14px",
+                  borderRadius: "9999px",
+                  cursor: "pointer",
+                  fontSize: "13px",
+                  fontWeight: "bold",
+                }}
+              >
+                {isBookmarked ? "🔖 保存済み" : "🔖 ブックマーク"}
+              </button>
+
               {!isOwner && (
                 <Link
                   href={`/report/post/${post.id}`}
@@ -953,6 +1037,18 @@ export default function Home() {
                 }}
               >
                 検索
+              </Link>
+
+              <Link
+                href="/bookmarks"
+                style={{
+                  color: currentTheme.accent,
+                  textDecoration: "none",
+                  fontSize: "14px",
+                  fontWeight: "bold",
+                }}
+              >
+                ブックマーク
               </Link>
 
               <Link
