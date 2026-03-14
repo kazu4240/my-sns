@@ -1,7 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { ChangeEvent, useEffect, useMemo, useState } from "react";
+import {
+  ChangeEvent,
+  MouseEvent as ReactMouseEvent,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { supabase } from "../lib/supabase";
 
 type Post = {
@@ -42,12 +48,128 @@ const DEFAULT_TEXT = "#ffffff";
 const DEFAULT_ACCENT = "#1d9bf0";
 const DEFAULT_BORDER = "#2f3336";
 
+function ReplyIcon({
+  size,
+  color,
+}: {
+  size: number;
+  color: string;
+}) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+      style={{ display: "block" }}
+    >
+      <path
+        d="M7 10.5C7 7.46243 9.46243 5 12.5 5H16.5C19.5376 5 22 7.46243 22 10.5C22 13.5376 19.5376 16 16.5 16H13.5L8 20V16.5C6.22156 15.5367 5 13.6498 5 11.5"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M9 10H15"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function HeartIcon({
+  size,
+  color,
+  filled,
+}: {
+  size: number;
+  color: string;
+  filled: boolean;
+}) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill={filled ? color : "none"}
+      aria-hidden="true"
+      style={{ display: "block" }}
+    >
+      <path
+        d="M12 20.5C11.7 20.5 11.4 20.4 11.1 20.2C8.7 18.5 3 14.3 3 9.2C3 6.3 5.2 4 8.1 4C9.8 4 11.1 4.8 12 5.8C12.9 4.8 14.2 4 15.9 4C18.8 4 21 6.3 21 9.2C21 14.3 15.3 18.5 12.9 20.2C12.6 20.4 12.3 20.5 12 20.5Z"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function BookmarkIcon({
+  size,
+  color,
+  filled,
+}: {
+  size: number;
+  color: string;
+  filled: boolean;
+}) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill={filled ? color : "none"}
+      aria-hidden="true"
+      style={{ display: "block" }}
+    >
+      <path
+        d="M7 4.5H17C17.8284 4.5 18.5 5.17157 18.5 6V20L12 16L5.5 20V6C5.5 5.17157 6.17157 4.5 7 4.5Z"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function MoreIcon({
+  size,
+  color,
+}: {
+  size: number;
+  color: string;
+}) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+      style={{ display: "block" }}
+    >
+      <circle cx="6" cy="12" r="1.8" fill={color} />
+      <circle cx="12" cy="12" r="1.8" fill={color} />
+      <circle cx="18" cy="12" r="1.8" fill={color} />
+    </svg>
+  );
+}
+
 export default function Home() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [profiles, setProfiles] = useState<Record<string, Profile>>({});
   const [followingUserIds, setFollowingUserIds] = useState<string[]>([]);
   const [bookmarkedPostIds, setBookmarkedPostIds] = useState<number[]>([]);
+  const [likedPostIds, setLikedPostIds] = useState<number[]>([]);
   const [activeTab, setActiveTab] = useState<HomeTab>("all");
+  const [openMenuPostId, setOpenMenuPostId] = useState<number | null>(null);
 
   const [text, setText] = useState("");
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
@@ -92,7 +214,8 @@ export default function Home() {
   }, [profiles, userId]);
 
   const uiScale = useMemo(() => {
-    const value = userId && profiles[userId]?.ui_scale ? profiles[userId].ui_scale : "normal";
+    const value =
+      userId && profiles[userId]?.ui_scale ? profiles[userId].ui_scale : "normal";
 
     if (value === "compact") {
       return {
@@ -104,11 +227,13 @@ export default function Home() {
         replyText: 14,
         metaText: 12,
         actionText: 12,
-        actionPadY: 7,
-        actionPadX: 12,
+        actionPadY: 6,
+        actionPadX: 8,
         textarea: 18,
         tabText: 13,
         headerLink: 13,
+        icon: 18,
+        menuIcon: 18,
       };
     }
 
@@ -122,11 +247,13 @@ export default function Home() {
         replyText: 16,
         metaText: 14,
         actionText: 14,
-        actionPadY: 10,
-        actionPadX: 16,
+        actionPadY: 9,
+        actionPadX: 12,
         textarea: 24,
         tabText: 15,
         headerLink: 15,
+        icon: 22,
+        menuIcon: 20,
       };
     }
 
@@ -140,10 +267,12 @@ export default function Home() {
       metaText: 13,
       actionText: 13,
       actionPadY: 8,
-      actionPadX: 14,
+      actionPadX: 10,
       textarea: 22,
       tabText: 14,
       headerLink: 14,
+      icon: 20,
+      menuIcon: 19,
     };
   }, [profiles, userId]);
 
@@ -394,6 +523,15 @@ export default function Home() {
     }
   }, [activeTab, userId]);
 
+  useEffect(() => {
+    const handleWindowClick = () => {
+      setOpenMenuPostId(null);
+    };
+
+    window.addEventListener("click", handleWindowClick);
+    return () => window.removeEventListener("click", handleWindowClick);
+  }, []);
+
   const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;
 
@@ -548,9 +686,14 @@ export default function Home() {
       return;
     }
 
+    const alreadyLiked = likedPostIds.includes(post.id);
+    const nextLikes = alreadyLiked
+      ? Math.max(0, post.likes - 1)
+      : post.likes + 1;
+
     const { error } = await supabase
       .from("posts")
-      .update({ likes: post.likes + 1 })
+      .update({ likes: nextLikes })
       .eq("id", post.id);
 
     if (error) {
@@ -560,17 +703,23 @@ export default function Home() {
 
     setPosts((prev) =>
       prev.map((item) =>
-        item.id === post.id ? { ...item, likes: post.likes + 1 } : item
+        item.id === post.id ? { ...item, likes: nextLikes } : item
       )
     );
 
-    if (post.user_id && post.user_id !== userId) {
-      await createNotification({
-        user_id: post.user_id,
-        actor_user_id: userId,
-        type: "like",
-        post_id: post.id,
-      });
+    if (alreadyLiked) {
+      setLikedPostIds((prev) => prev.filter((id) => id !== post.id));
+    } else {
+      setLikedPostIds((prev) => [...prev, post.id]);
+
+      if (post.user_id && post.user_id !== userId) {
+        await createNotification({
+          user_id: post.user_id,
+          actor_user_id: userId,
+          type: "like",
+          post_id: post.id,
+        });
+      }
     }
   };
 
@@ -629,6 +778,8 @@ export default function Home() {
 
     setPosts((prev) => prev.filter((item) => item.id !== post.id));
     setBookmarkedPostIds((prev) => prev.filter((id) => id !== post.id));
+    setLikedPostIds((prev) => prev.filter((id) => id !== post.id));
+    setOpenMenuPostId(null);
 
     if (editingId === post.id || replyingToId === post.id) {
       resetComposer();
@@ -646,6 +797,7 @@ export default function Home() {
     setText(post.content);
     setSelectedImage(null);
     setPreviewUrl("");
+    setOpenMenuPostId(null);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -679,7 +831,9 @@ export default function Home() {
     setUserId(null);
     setFollowingUserIds([]);
     setBookmarkedPostIds([]);
+    setLikedPostIds([]);
     setActiveTab("all");
+    setOpenMenuPostId(null);
     resetComposer();
     setProfiles({});
     setUnreadNotifications(0);
@@ -730,11 +884,25 @@ export default function Home() {
       ? posts.find((post) => post.id === replyingToId) ?? null
       : null;
 
+  const menuItemStyle = {
+    width: "100%",
+    textAlign: "left" as const,
+    background: "transparent",
+    border: "none",
+    padding: "10px 12px",
+    color: currentTheme.text,
+    fontSize: uiScale.actionText,
+    fontWeight: "bold" as const,
+    cursor: "pointer",
+  };
+
   const renderPostCard = (post: Post, isReply = false) => {
     const isOwner = !!userId && post.user_id === userId;
     const replies = repliesByParent[post.id] ?? [];
     const profileHref = post.user_id ? `/users/${post.user_id}` : "/profile";
     const isBookmarked = bookmarkedPostIds.includes(post.id);
+    const isLiked = likedPostIds.includes(post.id);
+    const isMenuOpen = openMenuPostId === post.id;
 
     return (
       <article
@@ -799,56 +967,138 @@ export default function Home() {
             <div
               style={{
                 display: "flex",
-                gap: "8px",
-                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "10px",
+                alignItems: "flex-start",
                 marginBottom: "10px",
-                flexWrap: "wrap",
               }}
             >
-              <Link
-                href={profileHref}
+              <div
                 style={{
-                  fontWeight: "bold",
-                  color: currentTheme.text,
-                  textDecoration: "none",
-                  fontSize: isReply ? uiScale.replyText : uiScale.postText - 1,
+                  display: "flex",
+                  gap: "8px",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  minWidth: 0,
                 }}
               >
-                {getDisplayName(post)}
-              </Link>
-
-              <span
-                style={{
-                  color: currentTheme.muted,
-                  fontSize: uiScale.metaText,
-                }}
-              >
-                @{getUsername(post)}
-              </span>
-
-              <span
-                style={{
-                  color: currentTheme.muted,
-                  fontSize: uiScale.metaText,
-                }}
-              >
-                ・ {formatDate(post.created_at)}
-              </span>
-
-              {isReply && (
-                <span
+                <Link
+                  href={profileHref}
                   style={{
-                    color: currentTheme.accent,
-                    fontSize: uiScale.metaText,
                     fontWeight: "bold",
-                    padding: "4px 8px",
-                    borderRadius: "9999px",
-                    background: "rgba(29,155,240,0.12)",
+                    color: currentTheme.text,
+                    textDecoration: "none",
+                    fontSize: isReply ? uiScale.replyText : uiScale.postText - 1,
                   }}
                 >
-                  返信
+                  {getDisplayName(post)}
+                </Link>
+
+                <span
+                  style={{
+                    color: currentTheme.muted,
+                    fontSize: uiScale.metaText,
+                  }}
+                >
+                  @{getUsername(post)}
                 </span>
-              )}
+
+                <span
+                  style={{
+                    color: currentTheme.muted,
+                    fontSize: uiScale.metaText,
+                  }}
+                >
+                  ・ {formatDate(post.created_at)}
+                </span>
+
+                {isReply && (
+                  <span
+                    style={{
+                      color: currentTheme.accent,
+                      fontSize: uiScale.metaText,
+                      fontWeight: "bold",
+                      padding: "4px 8px",
+                      borderRadius: "9999px",
+                      background: "rgba(29,155,240,0.12)",
+                    }}
+                  >
+                    返信
+                  </span>
+                )}
+              </div>
+
+              <div style={{ position: "relative", flexShrink: 0 }}>
+                <button
+                  onClick={(e: ReactMouseEvent<HTMLButtonElement>) => {
+                    e.stopPropagation();
+                    setOpenMenuPostId((prev) => (prev === post.id ? null : post.id));
+                  }}
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    padding: "6px",
+                    borderRadius: "9999px",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <MoreIcon size={uiScale.menuIcon} color={currentTheme.muted} />
+                </button>
+
+                {isMenuOpen && (
+                  <div
+                    onClick={(e) => e.stopPropagation()}
+                    style={{
+                      position: "absolute",
+                      right: 0,
+                      top: "38px",
+                      minWidth: "140px",
+                      background: currentTheme.background,
+                      border: `1px solid ${currentTheme.border}`,
+                      borderRadius: "14px",
+                      overflow: "hidden",
+                      boxShadow: "0 18px 40px rgba(0,0,0,0.22)",
+                      zIndex: 50,
+                    }}
+                  >
+                    {isOwner ? (
+                      <>
+                        <button
+                          onClick={() => handleEdit(post)}
+                          style={menuItemStyle}
+                        >
+                          編集
+                        </button>
+                        <button
+                          onClick={() => handleDelete(post)}
+                          style={{
+                            ...menuItemStyle,
+                            color: "#ff6b6b",
+                          }}
+                        >
+                          削除
+                        </button>
+                      </>
+                    ) : (
+                      <Link
+                        href={`/report/post/${post.id}`}
+                        onClick={() => setOpenMenuPostId(null)}
+                        style={{
+                          display: "block",
+                          ...menuItemStyle,
+                          color: "#ff6b6b",
+                          textDecoration: "none",
+                        }}
+                      >
+                        通報
+                      </Link>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
 
             <p
@@ -891,114 +1141,80 @@ export default function Home() {
             <div
               style={{
                 display: "flex",
-                gap: "10px",
-                flexWrap: "wrap",
-                paddingTop: "2px",
+                alignItems: "center",
+                gap: "12px",
+                flexWrap: "nowrap",
+                overflowX: "auto",
+                paddingTop: "4px",
               }}
             >
               <button
-                onClick={() => handleLike(post)}
+                onClick={() => handleReply(post)}
                 style={{
                   background: "transparent",
                   color: currentTheme.muted,
-                  border: `1px solid ${currentTheme.border}`,
+                  border: "none",
                   padding: `${uiScale.actionPadY}px ${uiScale.actionPadX}px`,
                   borderRadius: "9999px",
                   cursor: "pointer",
                   fontSize: uiScale.actionText,
                   fontWeight: "bold",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  flexShrink: 0,
                 }}
               >
-                ❤️ いいね {post.likes}
+                <ReplyIcon size={uiScale.icon} color={currentTheme.muted} />
+                <span>{replies.length}</span>
               </button>
 
-              {!isReply && (
-                <button
-                  onClick={() => handleReply(post)}
-                  style={{
-                    background: "transparent",
-                    color: currentTheme.accent,
-                    border: `1px solid ${currentTheme.border}`,
-                    padding: `${uiScale.actionPadY}px ${uiScale.actionPadX}px`,
-                    borderRadius: "9999px",
-                    cursor: "pointer",
-                    fontSize: uiScale.actionText,
-                    fontWeight: "bold",
-                  }}
-                >
-                  💬 返信 {replies.length}
-                </button>
-              )}
+              <button
+                onClick={() => handleLike(post)}
+                style={{
+                  background: "transparent",
+                  color: isLiked ? "#ff5a79" : currentTheme.muted,
+                  border: "none",
+                  padding: `${uiScale.actionPadY}px ${uiScale.actionPadX}px`,
+                  borderRadius: "9999px",
+                  cursor: "pointer",
+                  fontSize: uiScale.actionText,
+                  fontWeight: "bold",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  flexShrink: 0,
+                }}
+              >
+                <HeartIcon
+                  size={uiScale.icon}
+                  color={isLiked ? "#ff5a79" : currentTheme.muted}
+                  filled={isLiked}
+                />
+                <span>{post.likes}</span>
+              </button>
 
               <button
                 onClick={() => handleToggleBookmark(post)}
                 style={{
                   background: "transparent",
                   color: isBookmarked ? "#ffd166" : currentTheme.muted,
-                  border: `1px solid ${currentTheme.border}`,
+                  border: "none",
                   padding: `${uiScale.actionPadY}px ${uiScale.actionPadX}px`,
                   borderRadius: "9999px",
                   cursor: "pointer",
-                  fontSize: uiScale.actionText,
-                  fontWeight: "bold",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
                 }}
               >
-                {isBookmarked ? "🔖 保存済み" : "🔖 ブックマーク"}
+                <BookmarkIcon
+                  size={uiScale.icon}
+                  color={isBookmarked ? "#ffd166" : currentTheme.muted}
+                  filled={isBookmarked}
+                />
               </button>
-
-              {!isOwner && (
-                <Link
-                  href={`/report/post/${post.id}`}
-                  style={{
-                    background: "transparent",
-                    color: "#ff6b6b",
-                    border: `1px solid ${currentTheme.border}`,
-                    padding: `${uiScale.actionPadY}px ${uiScale.actionPadX}px`,
-                    borderRadius: "9999px",
-                    textDecoration: "none",
-                    fontSize: uiScale.actionText,
-                    fontWeight: "bold",
-                  }}
-                >
-                  🚨 通報
-                </Link>
-              )}
-
-              {isOwner && (
-                <>
-                  <button
-                    onClick={() => handleEdit(post)}
-                    style={{
-                      background: "transparent",
-                      color: "#ffd166",
-                      border: `1px solid ${currentTheme.border}`,
-                      padding: `${uiScale.actionPadY}px ${uiScale.actionPadX}px`,
-                      borderRadius: "9999px",
-                      cursor: "pointer",
-                      fontSize: uiScale.actionText,
-                      fontWeight: "bold",
-                    }}
-                  >
-                    ✏️ 編集
-                  </button>
-
-                  <button
-                    onClick={() => handleDelete(post)}
-                    style={{
-                      background: "transparent",
-                      color: "#ff6b6b",
-                      border: `1px solid ${currentTheme.border}`,
-                      padding: `${uiScale.actionPadY}px ${uiScale.actionPadX}px`,
-                      borderRadius: "9999px",
-                      cursor: "pointer",
-                      fontSize: uiScale.actionText,
-                      fontWeight: "bold",
-                    }}
-                  >
-                    🗑 削除
-                  </button>
-                </>
-              )}
             </div>
           </div>
 
