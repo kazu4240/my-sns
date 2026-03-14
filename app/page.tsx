@@ -227,13 +227,14 @@ export default function Home() {
         replyText: 14,
         metaText: 12,
         actionText: 12,
-        actionPadY: 6,
-        actionPadX: 8,
         textarea: 18,
         tabText: 13,
         headerLink: 13,
         icon: 18,
         menuIcon: 18,
+        actionHeight: 34,
+        actionMinWidth: 42,
+        actionGap: 12,
       };
     }
 
@@ -247,13 +248,14 @@ export default function Home() {
         replyText: 16,
         metaText: 14,
         actionText: 14,
-        actionPadY: 9,
-        actionPadX: 12,
         textarea: 24,
         tabText: 15,
         headerLink: 15,
         icon: 22,
         menuIcon: 20,
+        actionHeight: 40,
+        actionMinWidth: 52,
+        actionGap: 14,
       };
     }
 
@@ -266,13 +268,14 @@ export default function Home() {
       replyText: 15,
       metaText: 13,
       actionText: 13,
-      actionPadY: 8,
-      actionPadX: 10,
       textarea: 22,
       tabText: 14,
       headerLink: 14,
       icon: 20,
       menuIcon: 19,
+      actionHeight: 36,
+      actionMinWidth: 46,
+      actionGap: 13,
     };
   }, [profiles, userId]);
 
@@ -896,6 +899,21 @@ export default function Home() {
     cursor: "pointer",
   };
 
+  const actionButtonBase = {
+    height: `${uiScale.actionHeight}px`,
+    minWidth: `${uiScale.actionMinWidth}px`,
+    border: "none",
+    background: "transparent",
+    borderRadius: "9999px",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "6px",
+    padding: "0 6px",
+    cursor: "pointer",
+    flexShrink: 0,
+  } as const;
+
   const renderPostCard = (post: Post, isReply = false) => {
     const isOwner = !!userId && post.user_id === userId;
     const replies = repliesByParent[post.id] ?? [];
@@ -1066,10 +1084,7 @@ export default function Home() {
                   >
                     {isOwner ? (
                       <>
-                        <button
-                          onClick={() => handleEdit(post)}
-                          style={menuItemStyle}
-                        >
+                        <button onClick={() => handleEdit(post)} style={menuItemStyle}>
                           編集
                         </button>
                         <button
@@ -1142,48 +1157,39 @@ export default function Home() {
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: "12px",
+                gap: `${uiScale.actionGap}px`,
                 flexWrap: "nowrap",
                 overflowX: "auto",
-                paddingTop: "4px",
+                paddingTop: "2px",
               }}
             >
               <button
                 onClick={() => handleReply(post)}
                 style={{
-                  background: "transparent",
+                  ...actionButtonBase,
                   color: currentTheme.muted,
-                  border: "none",
-                  padding: `${uiScale.actionPadY}px ${uiScale.actionPadX}px`,
-                  borderRadius: "9999px",
-                  cursor: "pointer",
-                  fontSize: uiScale.actionText,
-                  fontWeight: "bold",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  flexShrink: 0,
                 }}
               >
                 <ReplyIcon size={uiScale.icon} color={currentTheme.muted} />
-                <span>{replies.length}</span>
+                <span
+                  style={{
+                    fontSize: uiScale.actionText,
+                    fontWeight: "bold",
+                    lineHeight: 1,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    height: "100%",
+                  }}
+                >
+                  {replies.length}
+                </span>
               </button>
 
               <button
                 onClick={() => handleLike(post)}
                 style={{
-                  background: "transparent",
+                  ...actionButtonBase,
                   color: isLiked ? "#ff5a79" : currentTheme.muted,
-                  border: "none",
-                  padding: `${uiScale.actionPadY}px ${uiScale.actionPadX}px`,
-                  borderRadius: "9999px",
-                  cursor: "pointer",
-                  fontSize: uiScale.actionText,
-                  fontWeight: "bold",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  flexShrink: 0,
                 }}
               >
                 <HeartIcon
@@ -1191,22 +1197,25 @@ export default function Home() {
                   color={isLiked ? "#ff5a79" : currentTheme.muted}
                   filled={isLiked}
                 />
-                <span>{post.likes}</span>
+                <span
+                  style={{
+                    fontSize: uiScale.actionText,
+                    fontWeight: "bold",
+                    lineHeight: 1,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    height: "100%",
+                  }}
+                >
+                  {post.likes}
+                </span>
               </button>
 
               <button
                 onClick={() => handleToggleBookmark(post)}
                 style={{
-                  background: "transparent",
+                  ...actionButtonBase,
                   color: isBookmarked ? "#ffd166" : currentTheme.muted,
-                  border: "none",
-                  padding: `${uiScale.actionPadY}px ${uiScale.actionPadX}px`,
-                  borderRadius: "9999px",
-                  cursor: "pointer",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  flexShrink: 0,
                 }}
               >
                 <BookmarkIcon
@@ -1411,7 +1420,7 @@ export default function Home() {
                       background: currentTheme.card,
                       color: currentTheme.accent,
                       border: `1px solid ${currentTheme.border}`,
-                      padding: `${uiScale.actionPadY}px ${uiScale.actionPadX}px`,
+                      padding: "8px 12px",
                       borderRadius: "9999px",
                       cursor: loading ? "not-allowed" : "pointer",
                       fontSize: uiScale.actionText,
@@ -1427,7 +1436,7 @@ export default function Home() {
                       background: currentTheme.card,
                       color: "#ff6b6b",
                       border: `1px solid ${currentTheme.border}`,
-                      padding: `${uiScale.actionPadY}px ${uiScale.actionPadX}px`,
+                      padding: "8px 12px",
                       borderRadius: "9999px",
                       cursor: "pointer",
                       fontSize: uiScale.actionText,
@@ -1675,7 +1684,7 @@ export default function Home() {
                           background: "transparent",
                           color: "#ff6b6b",
                           border: `1px solid ${currentTheme.border}`,
-                          padding: `${uiScale.actionPadY}px ${uiScale.actionPadX}px`,
+                          padding: "8px 12px",
                           borderRadius: "9999px",
                           cursor: "pointer",
                           fontSize: uiScale.actionText,
@@ -1723,7 +1732,7 @@ export default function Home() {
                         background: "transparent",
                         color: currentTheme.muted,
                         border: `1px solid ${currentTheme.border}`,
-                        padding: `${uiScale.actionPadY}px ${uiScale.actionPadX}px`,
+                        padding: "8px 12px",
                         borderRadius: "9999px",
                         fontSize: uiScale.actionText,
                         fontWeight: "bold",
@@ -1752,7 +1761,7 @@ export default function Home() {
                           : currentTheme.accent,
                       color: "#ffffff",
                       border: "none",
-                      padding: `${uiScale.actionPadY + 1}px ${uiScale.actionPadX + 4}px`,
+                      padding: "9px 16px",
                       borderRadius: "9999px",
                       fontSize: uiScale.actionText,
                       fontWeight: 800,
