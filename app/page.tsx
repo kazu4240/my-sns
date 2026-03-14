@@ -924,15 +924,15 @@ export default function Home() {
 
     return (
       <article
-        key={post.id}
-        style={{
-          display: "flex",
-          gap: "12px",
-          padding: isReply ? "14px 0 0 0" : "18px 20px",
-          borderBottom: isReply ? "none" : `1px solid ${currentTheme.border}`,
-          marginLeft: isReply ? "20px" : "0",
-        }}
-      >
+  key={post.id}
+  style={{
+    display: "flex",
+    gap: isReply ? "10px" : "12px",
+    padding: isReply ? "12px 0 0 0" : "18px 20px",
+    borderBottom: isReply ? "none" : `1px solid ${currentTheme.border}`,
+    marginLeft: "0",
+  }}
+>
         {getAvatarUrl(post) ? (
           <Link href={profileHref} style={{ flexShrink: 0 }}>
             <img
@@ -1228,16 +1228,17 @@ export default function Home() {
           </div>
 
           {!isReply && replies.length > 0 && (
-            <div
-              style={{
-                marginTop: "12px",
-                paddingLeft: "8px",
-                borderLeft: `2px solid ${currentTheme.border}`,
-              }}
-            >
-              {replies.map((reply) => renderPostCard(reply, true))}
-            </div>
-          )}
+  <div
+    style={{
+      marginTop: "10px",
+      marginLeft: "6px",
+      paddingLeft: "12px",
+      borderLeft: `2px solid ${currentTheme.border}`,
+    }}
+  >
+    {replies.map((reply) => renderPostCard(reply, true))}
+  </div>
+)}
         </div>
       </article>
     );
