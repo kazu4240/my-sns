@@ -24,6 +24,7 @@ type Profile = {
   theme_card_color: string | null;
   theme_text_color: string | null;
   theme_accent_color: string | null;
+  ui_scale: string | null;
 };
 
 type NotificationInsert = {
@@ -90,6 +91,62 @@ export default function Home() {
     };
   }, [profiles, userId]);
 
+  const uiScale = useMemo(() => {
+    const value = userId && profiles[userId]?.ui_scale ? profiles[userId].ui_scale : "normal";
+
+    if (value === "compact") {
+      return {
+        headerTitle: 22,
+        avatar: 40,
+        avatarReply: 34,
+        composerAvatar: 44,
+        postText: 15,
+        replyText: 14,
+        metaText: 12,
+        actionText: 12,
+        actionPadY: 7,
+        actionPadX: 12,
+        textarea: 18,
+        tabText: 13,
+        headerLink: 13,
+      };
+    }
+
+    if (value === "large") {
+      return {
+        headerTitle: 30,
+        avatar: 56,
+        avatarReply: 46,
+        composerAvatar: 60,
+        postText: 18,
+        replyText: 16,
+        metaText: 14,
+        actionText: 14,
+        actionPadY: 10,
+        actionPadX: 16,
+        textarea: 24,
+        tabText: 15,
+        headerLink: 15,
+      };
+    }
+
+    return {
+      headerTitle: 26,
+      avatar: 48,
+      avatarReply: 40,
+      composerAvatar: 52,
+      postText: 17,
+      replyText: 15,
+      metaText: 13,
+      actionText: 13,
+      actionPadY: 8,
+      actionPadX: 14,
+      textarea: 22,
+      tabText: 14,
+      headerLink: 14,
+    };
+  }, [profiles, userId]);
+
   const rootPosts = useMemo(() => {
     return posts.filter((post) => post.parent_id === null);
   }, [posts]);
@@ -110,9 +167,7 @@ export default function Home() {
       if (b.likes !== a.likes) {
         return b.likes - a.likes;
       }
-      return (
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      );
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
   }, [activeTab, rootPosts, followingUserIds, userId]);
 
@@ -270,7 +325,7 @@ export default function Home() {
       const { data: profileData, error: profileError } = await supabase
         .from("profiles")
         .select(
-          "user_id, display_name, bio, avatar_url, theme_background_color, theme_card_color, theme_text_color, theme_accent_color"
+          "user_id, display_name, bio, avatar_url, theme_background_color, theme_card_color, theme_text_color, theme_accent_color, ui_scale"
         )
         .in("user_id", userIds);
 
@@ -686,8 +741,8 @@ export default function Home() {
         key={post.id}
         style={{
           display: "flex",
-          gap: "14px",
-          padding: isReply ? "16px 0 0 0" : "18px 20px",
+          gap: "12px",
+          padding: isReply ? "14px 0 0 0" : "18px 20px",
           borderBottom: isReply ? "none" : `1px solid ${currentTheme.border}`,
           marginLeft: isReply ? "20px" : "0",
         }}
@@ -698,8 +753,8 @@ export default function Home() {
               src={getAvatarUrl(post)!}
               alt="avatar"
               style={{
-                width: isReply ? "40px" : "48px",
-                height: isReply ? "40px" : "48px",
+                width: isReply ? uiScale.avatarReply : uiScale.avatar,
+                height: isReply ? uiScale.avatarReply : uiScale.avatar,
                 borderRadius: "9999px",
                 objectFit: "cover",
                 display: "block",
@@ -712,8 +767,8 @@ export default function Home() {
           <Link
             href={profileHref}
             style={{
-              width: isReply ? "40px" : "48px",
-              height: isReply ? "40px" : "48px",
+              width: isReply ? uiScale.avatarReply : uiScale.avatar,
+              height: isReply ? uiScale.avatarReply : uiScale.avatar,
               borderRadius: "9999px",
               background: currentTheme.accent,
               display: "flex",
@@ -724,6 +779,7 @@ export default function Home() {
               color: "#ffffff",
               textDecoration: "none",
               boxShadow: "0 4px 14px rgba(0,0,0,0.12)",
+              fontSize: isReply ? uiScale.replyText : uiScale.postText,
             }}
           >
             {getDisplayName(post).slice(0, 1).toUpperCase()}
@@ -755,17 +811,27 @@ export default function Home() {
                   fontWeight: "bold",
                   color: currentTheme.text,
                   textDecoration: "none",
-                  fontSize: isReply ? "15px" : "16px",
+                  fontSize: isReply ? uiScale.replyText : uiScale.postText - 1,
                 }}
               >
                 {getDisplayName(post)}
               </Link>
 
-              <span style={{ color: currentTheme.muted, fontSize: "14px" }}>
+              <span
+                style={{
+                  color: currentTheme.muted,
+                  fontSize: uiScale.metaText,
+                }}
+              >
                 @{getUsername(post)}
               </span>
 
-              <span style={{ color: currentTheme.muted, fontSize: "13px" }}>
+              <span
+                style={{
+                  color: currentTheme.muted,
+                  fontSize: uiScale.metaText,
+                }}
+              >
                 ・ {formatDate(post.created_at)}
               </span>
 
@@ -773,7 +839,7 @@ export default function Home() {
                 <span
                   style={{
                     color: currentTheme.accent,
-                    fontSize: "12px",
+                    fontSize: uiScale.metaText,
                     fontWeight: "bold",
                     padding: "4px 8px",
                     borderRadius: "9999px",
@@ -787,7 +853,7 @@ export default function Home() {
 
             <p
               style={{
-                fontSize: isReply ? "15px" : "17px",
+                fontSize: isReply ? uiScale.replyText : uiScale.postText,
                 lineHeight: 1.75,
                 whiteSpace: "pre-wrap",
                 margin: 0,
@@ -836,10 +902,10 @@ export default function Home() {
                   background: "transparent",
                   color: currentTheme.muted,
                   border: `1px solid ${currentTheme.border}`,
-                  padding: "8px 14px",
+                  padding: `${uiScale.actionPadY}px ${uiScale.actionPadX}px`,
                   borderRadius: "9999px",
                   cursor: "pointer",
-                  fontSize: "13px",
+                  fontSize: uiScale.actionText,
                   fontWeight: "bold",
                 }}
               >
@@ -853,10 +919,10 @@ export default function Home() {
                     background: "transparent",
                     color: currentTheme.accent,
                     border: `1px solid ${currentTheme.border}`,
-                    padding: "8px 14px",
+                    padding: `${uiScale.actionPadY}px ${uiScale.actionPadX}px`,
                     borderRadius: "9999px",
                     cursor: "pointer",
-                    fontSize: "13px",
+                    fontSize: uiScale.actionText,
                     fontWeight: "bold",
                   }}
                 >
@@ -870,10 +936,10 @@ export default function Home() {
                   background: "transparent",
                   color: isBookmarked ? "#ffd166" : currentTheme.muted,
                   border: `1px solid ${currentTheme.border}`,
-                  padding: "8px 14px",
+                  padding: `${uiScale.actionPadY}px ${uiScale.actionPadX}px`,
                   borderRadius: "9999px",
                   cursor: "pointer",
-                  fontSize: "13px",
+                  fontSize: uiScale.actionText,
                   fontWeight: "bold",
                 }}
               >
@@ -887,10 +953,10 @@ export default function Home() {
                     background: "transparent",
                     color: "#ff6b6b",
                     border: `1px solid ${currentTheme.border}`,
-                    padding: "8px 14px",
+                    padding: `${uiScale.actionPadY}px ${uiScale.actionPadX}px`,
                     borderRadius: "9999px",
                     textDecoration: "none",
-                    fontSize: "13px",
+                    fontSize: uiScale.actionText,
                     fontWeight: "bold",
                   }}
                 >
@@ -906,10 +972,10 @@ export default function Home() {
                       background: "transparent",
                       color: "#ffd166",
                       border: `1px solid ${currentTheme.border}`,
-                      padding: "8px 14px",
+                      padding: `${uiScale.actionPadY}px ${uiScale.actionPadX}px`,
                       borderRadius: "9999px",
                       cursor: "pointer",
-                      fontSize: "13px",
+                      fontSize: uiScale.actionText,
                       fontWeight: "bold",
                     }}
                   >
@@ -922,10 +988,10 @@ export default function Home() {
                       background: "transparent",
                       color: "#ff6b6b",
                       border: `1px solid ${currentTheme.border}`,
-                      padding: "8px 14px",
+                      padding: `${uiScale.actionPadY}px ${uiScale.actionPadX}px`,
                       borderRadius: "9999px",
                       cursor: "pointer",
-                      fontSize: "13px",
+                      fontSize: uiScale.actionText,
                       fontWeight: "bold",
                     }}
                   >
@@ -960,7 +1026,7 @@ export default function Home() {
     padding: "12px 14px",
     borderRadius: "14px",
     cursor: "pointer",
-    fontSize: "14px",
+    fontSize: uiScale.tabText,
     fontWeight: "bold" as const,
   });
 
@@ -1008,7 +1074,7 @@ export default function Home() {
             <div>
               <div
                 style={{
-                  fontSize: "26px",
+                  fontSize: uiScale.headerTitle,
                   fontWeight: 800,
                   color: currentTheme.text,
                   letterSpacing: "-0.02em",
@@ -1032,7 +1098,7 @@ export default function Home() {
                 style={{
                   color: currentTheme.accent,
                   textDecoration: "none",
-                  fontSize: "14px",
+                  fontSize: uiScale.headerLink,
                   fontWeight: "bold",
                 }}
               >
@@ -1044,7 +1110,7 @@ export default function Home() {
                 style={{
                   color: currentTheme.accent,
                   textDecoration: "none",
-                  fontSize: "14px",
+                  fontSize: uiScale.headerLink,
                   fontWeight: "bold",
                 }}
               >
@@ -1056,7 +1122,7 @@ export default function Home() {
                 style={{
                   color: currentTheme.accent,
                   textDecoration: "none",
-                  fontSize: "14px",
+                  fontSize: uiScale.headerLink,
                   fontWeight: "bold",
                   position: "relative",
                 }}
@@ -1090,7 +1156,7 @@ export default function Home() {
                 style={{
                   color: currentTheme.accent,
                   textDecoration: "none",
-                  fontSize: "14px",
+                  fontSize: uiScale.headerLink,
                   fontWeight: "bold",
                 }}
               >
@@ -1113,7 +1179,7 @@ export default function Home() {
               <>
                 <span
                   style={{
-                    fontSize: "13px",
+                    fontSize: uiScale.metaText,
                     color: currentTheme.muted,
                     wordBreak: "break-all",
                   }}
@@ -1129,10 +1195,10 @@ export default function Home() {
                       background: currentTheme.card,
                       color: currentTheme.accent,
                       border: `1px solid ${currentTheme.border}`,
-                      padding: "8px 14px",
+                      padding: `${uiScale.actionPadY}px ${uiScale.actionPadX}px`,
                       borderRadius: "9999px",
                       cursor: loading ? "not-allowed" : "pointer",
-                      fontSize: "13px",
+                      fontSize: uiScale.actionText,
                       fontWeight: "bold",
                     }}
                   >
@@ -1145,10 +1211,10 @@ export default function Home() {
                       background: currentTheme.card,
                       color: "#ff6b6b",
                       border: `1px solid ${currentTheme.border}`,
-                      padding: "8px 14px",
+                      padding: `${uiScale.actionPadY}px ${uiScale.actionPadX}px`,
                       borderRadius: "9999px",
                       cursor: "pointer",
-                      fontSize: "13px",
+                      fontSize: uiScale.actionText,
                       fontWeight: "bold",
                     }}
                   >
@@ -1162,7 +1228,7 @@ export default function Home() {
                 style={{
                   color: currentTheme.accent,
                   textDecoration: "none",
-                  fontSize: "14px",
+                  fontSize: uiScale.headerLink,
                   fontWeight: "bold",
                 }}
               >
@@ -1177,10 +1243,7 @@ export default function Home() {
               gap: "10px",
             }}
           >
-            <button
-              onClick={() => setActiveTab("all")}
-              style={tabButtonStyle("all")}
-            >
+            <button onClick={() => setActiveTab("all")} style={tabButtonStyle("all")}>
               すべて
             </button>
 
@@ -1215,7 +1278,7 @@ export default function Home() {
                 background: "rgba(255,209,102,0.10)",
                 border: "1px solid rgba(255,209,102,0.25)",
                 color: "#ffd166",
-                fontSize: "14px",
+                fontSize: uiScale.actionText,
                 fontWeight: "bold",
               }}
             >
@@ -1236,7 +1299,7 @@ export default function Home() {
             >
               <div
                 style={{
-                  fontSize: "12px",
+                  fontSize: uiScale.metaText,
                   color: currentTheme.accent,
                   marginBottom: "8px",
                   fontWeight: "bold",
@@ -1250,6 +1313,7 @@ export default function Home() {
                   fontWeight: "bold",
                   marginBottom: "6px",
                   color: currentTheme.text,
+                  fontSize: uiScale.replyText,
                 }}
               >
                 {getDisplayName(replyTargetPost)}
@@ -1257,7 +1321,7 @@ export default function Home() {
               <div
                 style={{
                   color: currentTheme.softText,
-                  fontSize: "14px",
+                  fontSize: uiScale.replyText,
                   whiteSpace: "pre-wrap",
                   lineHeight: 1.6,
                 }}
@@ -1279,8 +1343,8 @@ export default function Home() {
                 src={myAvatarUrl}
                 alt="my avatar"
                 style={{
-                  width: "52px",
-                  height: "52px",
+                  width: uiScale.composerAvatar,
+                  height: uiScale.composerAvatar,
                   borderRadius: "9999px",
                   objectFit: "cover",
                   flexShrink: 0,
@@ -1292,8 +1356,8 @@ export default function Home() {
               <Link
                 href="/profile"
                 style={{
-                  width: "52px",
-                  height: "52px",
+                  width: uiScale.composerAvatar,
+                  height: uiScale.composerAvatar,
                   borderRadius: "9999px",
                   background: currentTheme.accent,
                   display: "flex",
@@ -1304,6 +1368,7 @@ export default function Home() {
                   color: "#ffffff",
                   textDecoration: "none",
                   boxShadow: "0 6px 18px rgba(0,0,0,0.14)",
+                  fontSize: uiScale.postText,
                 }}
               >
                 K
@@ -1342,7 +1407,7 @@ export default function Home() {
                   border: "none",
                   outline: "none",
                   resize: "none",
-                  fontSize: "22px",
+                  fontSize: uiScale.textarea,
                   lineHeight: 1.6,
                   opacity: userEmail ? 1 : 0.5,
                 }}
@@ -1381,7 +1446,7 @@ export default function Home() {
                     disabled={!userEmail || submitting}
                     style={{
                       color: currentTheme.text,
-                      fontSize: "14px",
+                      fontSize: uiScale.actionText,
                     }}
                   />
 
@@ -1394,10 +1459,10 @@ export default function Home() {
                           background: "transparent",
                           color: "#ff6b6b",
                           border: `1px solid ${currentTheme.border}`,
-                          padding: "8px 14px",
+                          padding: `${uiScale.actionPadY}px ${uiScale.actionPadX}px`,
                           borderRadius: "9999px",
                           cursor: "pointer",
-                          fontSize: "13px",
+                          fontSize: uiScale.actionText,
                           fontWeight: "bold",
                         }}
                       >
@@ -1422,7 +1487,7 @@ export default function Home() {
               >
                 <span
                   style={{
-                    fontSize: "13px",
+                    fontSize: uiScale.metaText,
                     color: remaining < 0 ? "#ff4d4f" : currentTheme.muted,
                     fontWeight: "bold",
                   }}
@@ -1442,9 +1507,9 @@ export default function Home() {
                         background: "transparent",
                         color: currentTheme.muted,
                         border: `1px solid ${currentTheme.border}`,
-                        padding: "10px 18px",
+                        padding: `${uiScale.actionPadY}px ${uiScale.actionPadX}px`,
                         borderRadius: "9999px",
-                        fontSize: "14px",
+                        fontSize: uiScale.actionText,
                         fontWeight: "bold",
                         cursor: "pointer",
                       }}
@@ -1471,9 +1536,9 @@ export default function Home() {
                           : currentTheme.accent,
                       color: "#ffffff",
                       border: "none",
-                      padding: "11px 20px",
+                      padding: `${uiScale.actionPadY + 1}px ${uiScale.actionPadX + 4}px`,
                       borderRadius: "9999px",
-                      fontSize: "14px",
+                      fontSize: uiScale.actionText,
                       fontWeight: 800,
                       cursor:
                         !userEmail ||
@@ -1527,9 +1592,7 @@ export default function Home() {
             </p>
           ) : displayedPosts.length === 0 ? (
             <p style={{ padding: "24px 20px", color: currentTheme.muted }}>
-              {activeTab === "following"
-                ? "フォロー中の投稿がまだない"
-                : "まだ投稿がない"}
+              {activeTab === "following" ? "フォロー中の投稿がまだない" : "まだ投稿がない"}
             </p>
           ) : (
             displayedPosts.map((post) => renderPostCard(post))

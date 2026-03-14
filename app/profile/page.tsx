@@ -4,17 +4,7 @@ import Link from "next/link";
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 
-type Post = {
-  id: number;
-  content: string;
-  created_at: string;
-  likes: number;
-  user_id: string | null;
-  user_email: string | null;
-};
-
 type Profile = {
-  id?: number;
   user_id: string;
   display_name: string | null;
   bio: string | null;
@@ -23,23 +13,23 @@ type Profile = {
   theme_card_color: string | null;
   theme_text_color: string | null;
   theme_accent_color: string | null;
+  ui_scale: string | null;
 };
 
 const DEFAULT_BACKGROUND = "#15202b";
 const DEFAULT_CARD = "#192734";
 const DEFAULT_TEXT = "#ffffff";
 const DEFAULT_ACCENT = "#1d9bf0";
+const DEFAULT_UI_SCALE = "normal";
 const DEFAULT_BORDER = "#2f3336";
 
 export default function ProfilePage() {
-  const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
-  const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
 
   const [displayName, setDisplayName] = useState("");
   const [bio, setBio] = useState("");
@@ -49,6 +39,9 @@ export default function ProfilePage() {
   const [themeCardColor, setThemeCardColor] = useState(DEFAULT_CARD);
   const [themeTextColor, setThemeTextColor] = useState(DEFAULT_TEXT);
   const [themeAccentColor, setThemeAccentColor] = useState(DEFAULT_ACCENT);
+  const [uiScale, setUiScale] = useState(DEFAULT_UI_SCALE);
+
+  const [errorMessage, setErrorMessage] = useState("");
 
   const theme = useMemo(() => {
     const textColor = themeTextColor || DEFAULT_TEXT;
@@ -64,124 +57,108 @@ export default function ProfilePage() {
     };
   }, [themeBackgroundColor, themeCardColor, themeTextColor, themeAccentColor]);
 
-  const applyPreset = (preset: "black" | "white" | "navy") => {
-    if (preset === "black") {
-      setThemeBackgroundColor("#000000");
-      setThemeCardColor("#111111");
-      setThemeTextColor("#ffffff");
-      setThemeAccentColor("#1d9bf0");
-      return;
+  const uiSize = useMemo(() => {
+    if (uiScale === "compact") {
+      return {
+        avatar: 72,
+        title: 24,
+        text: 14,
+        label: 13,
+        input: 14,
+        button: 13,
+        buttonPaddingY: 8,
+        buttonPaddingX: 14,
+      };
     }
 
-    if (preset === "white") {
-      setThemeBackgroundColor("#f5f7fa");
-      setThemeCardColor("#ffffff");
-      setThemeTextColor("#111111");
-      setThemeAccentColor("#2563eb");
-      return;
+    if (uiScale === "large") {
+      return {
+        avatar: 100,
+        title: 30,
+        text: 17,
+        label: 15,
+        input: 16,
+        button: 15,
+        buttonPaddingY: 11,
+        buttonPaddingX: 18,
+      };
     }
 
-    setThemeBackgroundColor("#15202b");
-    setThemeCardColor("#192734");
-    setThemeTextColor("#ffffff");
-    setThemeAccentColor("#1d9bf0");
-  };
+    return {
+      avatar: 88,
+      title: 28,
+      text: 15,
+      label: 14,
+      input: 15,
+      button: 14,
+      buttonPaddingY: 10,
+      buttonPaddingX: 16,
+    };
+  }, [uiScale]);
 
-  const loadPage = async () => {
+  const loadProfile = async () => {
     setLoading(true);
     setErrorMessage("");
 
     try {
       const {
         data: { user },
-        error: userError,
+        error: authError,
       } = await supabase.auth.getUser();
 
-      if (userError) {
-        throw new Error(userError.message);
+      if (authError) {
+        throw new Error(authError.message);
       }
 
-      setUserEmail(user?.email ?? null);
-      setUserId(user?.id ?? null);
-
-      if (!user?.id) {
-        setPosts([]);
-        setDisplayName("");
-        setBio("");
-        setAvatarUrl("");
-        setThemeBackgroundColor(DEFAULT_BACKGROUND);
-        setThemeCardColor(DEFAULT_CARD);
-        setThemeTextColor(DEFAULT_TEXT);
-        setThemeAccentColor(DEFAULT_ACCENT);
+      if (!user) {
+        setUserId(null);
+        setUserEmail(null);
+        setLoading(false);
         return;
       }
 
-      const [profileResult, postsResult] = await Promise.all([
-        supabase.from("profiles").select("*").eq("user_id", user.id).maybeSingle(),
-        supabase
-          .from("posts")
-          .select("*")
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false })
-          .limit(10),
-      ]);
+      setUserId(user.id);
+      setUserEmail(user.email ?? null);
 
-      const profileData = profileResult.data as Profile | null;
-      const postsData = (postsResult.data ?? []) as Post[];
+      const { data, error } = await supabase
+        .from("profiles")
+        .select(
+          "user_id, display_name, bio, avatar_url, theme_background_color, theme_card_color, theme_text_color, theme_accent_color, ui_scale"
+        )
+        .eq("user_id", user.id)
+        .maybeSingle();
 
-      if (profileResult.error) {
-        console.error(profileResult.error);
+      if (error) {
+        throw new Error(error.message);
       }
 
-      if (postsResult.error) {
-        console.error(postsResult.error);
-      }
+      const profile = (data as Profile | null) ?? null;
 
-      if (profileData) {
-        setDisplayName(profileData.display_name ?? "");
-        setBio(profileData.bio ?? "");
-        setAvatarUrl(profileData.avatar_url ?? "");
-        setThemeBackgroundColor(
-          profileData.theme_background_color ?? DEFAULT_BACKGROUND
-        );
-        setThemeCardColor(profileData.theme_card_color ?? DEFAULT_CARD);
-        setThemeTextColor(profileData.theme_text_color ?? DEFAULT_TEXT);
-        setThemeAccentColor(profileData.theme_accent_color ?? DEFAULT_ACCENT);
-      } else {
-        setDisplayName(user.email?.split("@")[0] ?? "");
-        setBio("");
-        setAvatarUrl("");
-        setThemeBackgroundColor(DEFAULT_BACKGROUND);
-        setThemeCardColor(DEFAULT_CARD);
-        setThemeTextColor(DEFAULT_TEXT);
-        setThemeAccentColor(DEFAULT_ACCENT);
-      }
-
-      setPosts(postsData);
+      setDisplayName(profile?.display_name ?? "");
+      setBio(profile?.bio ?? "");
+      setAvatarUrl(profile?.avatar_url ?? "");
+      setThemeBackgroundColor(profile?.theme_background_color ?? DEFAULT_BACKGROUND);
+      setThemeCardColor(profile?.theme_card_color ?? DEFAULT_CARD);
+      setThemeTextColor(profile?.theme_text_color ?? DEFAULT_TEXT);
+      setThemeAccentColor(profile?.theme_accent_color ?? DEFAULT_ACCENT);
+      setUiScale(profile?.ui_scale ?? DEFAULT_UI_SCALE);
     } catch (error) {
       console.error(error);
-      setErrorMessage("読み込み失敗。もう一度試してみて。");
-      setPosts([]);
+      setErrorMessage("プロフィールの読み込みに失敗しました。");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadPage();
+    loadProfile();
   }, []);
 
-  const handleAvatarUpload = async (e: ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    if (!file || !userId) return;
 
-    if (!file) return;
-
-    if (!userId) {
-      alert("ログインしてね");
-      return;
-    }
-
-    setUploading(true);
+    setUploadingAvatar(true);
 
     try {
       const fileExt = file.name.split(".").pop() || "png";
@@ -194,19 +171,17 @@ export default function ProfilePage() {
         });
 
       if (uploadError) {
-        alert("画像アップロード失敗: " + uploadError.message);
-        return;
+        throw new Error(uploadError.message);
       }
 
       const { data } = supabase.storage.from("avatars").getPublicUrl(filePath);
-
       setAvatarUrl(data.publicUrl);
-      alert("画像アップロードできた！");
+      alert("アイコン画像をアップしました");
     } catch (error) {
       console.error(error);
-      alert("画像アップロード失敗");
+      alert("アイコン画像アップロード失敗");
     } finally {
-      setUploading(false);
+      setUploadingAvatar(false);
     }
   };
 
@@ -219,77 +194,40 @@ export default function ProfilePage() {
     setSaving(true);
 
     try {
-      const { data: existingProfile, error: checkError } = await supabase
-        .from("profiles")
-        .select("user_id")
-        .eq("user_id", userId)
-        .maybeSingle();
+      const { error } = await supabase.from("profiles").upsert({
+        user_id: userId,
+        display_name: displayName.trim() || null,
+        bio: bio.trim() || null,
+        avatar_url: avatarUrl || null,
+        theme_background_color: themeBackgroundColor,
+        theme_card_color: themeCardColor,
+        theme_text_color: themeTextColor,
+        theme_accent_color: themeAccentColor,
+        ui_scale: uiScale,
+      });
 
-      if (checkError) {
-        alert("確認失敗: " + checkError.message);
+      if (error) {
+        alert("保存失敗: " + error.message);
+        setSaving(false);
         return;
       }
 
-      if (existingProfile) {
-        const { error: updateError } = await supabase
-          .from("profiles")
-          .update({
-            display_name: displayName,
-            bio,
-            avatar_url: avatarUrl,
-            theme_background_color: themeBackgroundColor,
-            theme_card_color: themeCardColor,
-            theme_text_color: themeTextColor,
-            theme_accent_color: themeAccentColor,
-          })
-          .eq("user_id", userId);
-
-        if (updateError) {
-          alert("保存失敗: " + updateError.message);
-          return;
-        }
-      } else {
-        const { error: insertError } = await supabase.from("profiles").insert({
-          user_id: userId,
-          display_name: displayName,
-          bio,
-          avatar_url: avatarUrl,
-          theme_background_color: themeBackgroundColor,
-          theme_card_color: themeCardColor,
-          theme_text_color: themeTextColor,
-          theme_accent_color: themeAccentColor,
-        });
-
-        if (insertError) {
-          alert("保存失敗: " + insertError.message);
-          return;
-        }
-      }
-
-      await loadPage();
-      alert("プロフィール保存できた！");
+      alert("プロフィールを保存しました");
     } catch (error) {
       console.error(error);
-      alert("保存失敗");
+      alert("保存に失敗しました");
     } finally {
       setSaving(false);
     }
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-
-    return date.toLocaleString("ja-JP", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+  const handleResetTheme = () => {
+    setThemeBackgroundColor(DEFAULT_BACKGROUND);
+    setThemeCardColor(DEFAULT_CARD);
+    setThemeTextColor(DEFAULT_TEXT);
+    setThemeAccentColor(DEFAULT_ACCENT);
+    setUiScale(DEFAULT_UI_SCALE);
   };
-
-  const shownName = displayName || userEmail?.split("@")[0] || "未ログイン";
-  const shownId = userEmail?.split("@")[0] || "guest";
 
   return (
     <main
@@ -309,7 +247,6 @@ export default function ProfilePage() {
           borderRight: `1px solid ${theme.border}`,
           minHeight: "100vh",
           background: theme.background,
-          boxShadow: "0 0 0 1px rgba(0,0,0,0.02)",
         }}
       >
         <header
@@ -323,537 +260,57 @@ export default function ProfilePage() {
             zIndex: 20,
           }}
         >
-          <div
+          <Link
+            href="/"
             style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "flex-start",
-              gap: "16px",
-              marginBottom: "12px",
+              color: theme.accent,
+              textDecoration: "none",
+              fontSize: "14px",
+              display: "inline-block",
+              marginBottom: "10px",
+              fontWeight: "bold",
             }}
           >
-            <div>
-              <Link
-                href="/"
-                style={{
-                  color: theme.accent,
-                  textDecoration: "none",
-                  fontSize: "14px",
-                  display: "inline-block",
-                  marginBottom: "8px",
-                  fontWeight: "bold",
-                }}
-              >
-                ← ホームに戻る
-              </Link>
+            ← ホームに戻る
+          </Link>
 
-              <div
-                style={{
-                  fontSize: "26px",
-                  fontWeight: 800,
-                  color: theme.text,
-                  letterSpacing: "-0.02em",
-                }}
-              >
-                Ulein
-              </div>
-            </div>
+          <div
+            style={{
+              fontSize: uiSize.title,
+              fontWeight: 800,
+              letterSpacing: "-0.02em",
+              marginBottom: "6px",
+            }}
+          >
+            Ulein
+          </div>
+
+          <div
+            style={{
+              color: theme.muted,
+              fontSize: uiSize.label,
+            }}
+          >
+            プロフィール設定
           </div>
         </header>
 
-        <section
-          style={{
-            padding: "22px 20px 20px",
-            borderBottom: `1px solid ${theme.border}`,
-          }}
-        >
+        {errorMessage && (
           <div
             style={{
-              background: theme.card,
-              border: `1px solid ${theme.border}`,
-              borderRadius: "24px",
-              padding: "20px",
-              boxShadow: "0 12px 32px rgba(0,0,0,0.10)",
+              margin: "18px 20px 0",
+              padding: "14px 16px",
+              color: "#ffb4b4",
+              border: "1px solid rgba(255,107,107,0.25)",
+              background: "rgba(255,107,107,0.08)",
+              borderRadius: "18px",
             }}
           >
-            <div
-              style={{
-                display: "flex",
-                gap: "18px",
-                alignItems: "center",
-                flexWrap: "wrap",
-              }}
-            >
-              {avatarUrl ? (
-                <img
-                  src={avatarUrl}
-                  alt="avatar"
-                  style={{
-                    width: "92px",
-                    height: "92px",
-                    borderRadius: "9999px",
-                    objectFit: "cover",
-                    border: `2px solid ${theme.border}`,
-                    boxShadow: "0 8px 20px rgba(0,0,0,0.14)",
-                  }}
-                />
-              ) : (
-                <div
-                  style={{
-                    width: "92px",
-                    height: "92px",
-                    borderRadius: "9999px",
-                    background: theme.accent,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: "34px",
-                    fontWeight: "bold",
-                    color: "#ffffff",
-                    boxShadow: "0 8px 20px rgba(0,0,0,0.14)",
-                  }}
-                >
-                  {shownName.charAt(0).toUpperCase()}
-                </div>
-              )}
-
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <h1
-                  style={{
-                    margin: 0,
-                    fontSize: "30px",
-                    fontWeight: 800,
-                    color: theme.text,
-                    wordBreak: "break-all",
-                    letterSpacing: "-0.02em",
-                  }}
-                >
-                  {shownName}
-                </h1>
-
-                <div
-                  style={{
-                    marginTop: "6px",
-                    marginBottom: "14px",
-                    color: theme.muted,
-                    fontSize: "15px",
-                    wordBreak: "break-all",
-                  }}
-                >
-                  @{shownId}
-                </div>
-
-                <p
-                  style={{
-                    margin: 0,
-                    fontSize: "15px",
-                    lineHeight: 1.7,
-                    whiteSpace: "pre-wrap",
-                    color: theme.softText,
-                    wordBreak: "break-word",
-                  }}
-                >
-                  {bio || "自己紹介をまだ設定していません。"}
-                </p>
-              </div>
-            </div>
+            {errorMessage}
           </div>
-        </section>
-
-        <section
-          style={{
-            padding: "20px",
-            borderBottom: `1px solid ${theme.border}`,
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: "12px",
-              marginBottom: "16px",
-              flexWrap: "wrap",
-            }}
-          >
-            <h2
-              style={{
-                margin: 0,
-                fontSize: "22px",
-                fontWeight: 800,
-                color: theme.text,
-                letterSpacing: "-0.02em",
-              }}
-            >
-              プロフィール編集
-            </h2>
-
-            <div
-              style={{
-                color: theme.muted,
-                fontSize: "13px",
-                fontWeight: "bold",
-              }}
-            >
-              自分の見た目をカスタム
-            </div>
-          </div>
-
-          {errorMessage && (
-            <div
-              style={{
-                marginBottom: "14px",
-                border: "1px solid rgba(255,107,107,0.25)",
-                background: "rgba(255,107,107,0.08)",
-                color: "#ffb4b4",
-                borderRadius: "16px",
-                padding: "12px 14px",
-                fontSize: "14px",
-              }}
-            >
-              {errorMessage}
-            </div>
-          )}
-
-          {!userId ? (
-            <div
-              style={{
-                border: `1px solid ${theme.border}`,
-                borderRadius: "18px",
-                padding: "18px",
-                color: theme.muted,
-                background: theme.card,
-              }}
-            >
-              ログインするとプロフィール編集ができる
-            </div>
-          ) : (
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "14px",
-              }}
-            >
-              <div
-                style={{
-                  background: theme.card,
-                  border: `1px solid ${theme.border}`,
-                  borderRadius: "20px",
-                  padding: "16px",
-                  boxShadow: "0 10px 28px rgba(0,0,0,0.08)",
-                }}
-              >
-                <div
-                  style={{
-                    display: "grid",
-                    gap: "12px",
-                  }}
-                >
-                  <input
-                    value={displayName}
-                    onChange={(e) => setDisplayName(e.target.value)}
-                    placeholder="表示名"
-                    style={{
-                      padding: "14px",
-                      borderRadius: "14px",
-                      border: `1px solid ${theme.border}`,
-                      background: theme.background,
-                      color: theme.text,
-                      fontSize: "16px",
-                    }}
-                  />
-
-                  <textarea
-                    value={bio}
-                    onChange={(e) => setBio(e.target.value)}
-                    placeholder="自己紹介"
-                    style={{
-                      minHeight: "120px",
-                      padding: "14px",
-                      borderRadius: "14px",
-                      border: `1px solid ${theme.border}`,
-                      background: theme.background,
-                      color: theme.text,
-                      fontSize: "16px",
-                      resize: "vertical",
-                    }}
-                  />
-
-                  <input
-                    value={avatarUrl}
-                    onChange={(e) => setAvatarUrl(e.target.value)}
-                    placeholder="アイコン画像URL"
-                    style={{
-                      padding: "14px",
-                      borderRadius: "14px",
-                      border: `1px solid ${theme.border}`,
-                      background: theme.background,
-                      color: theme.text,
-                      fontSize: "16px",
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "8px",
-                  padding: "16px",
-                  borderRadius: "20px",
-                  border: `1px solid ${theme.border}`,
-                  background: theme.card,
-                  boxShadow: "0 10px 28px rgba(0,0,0,0.08)",
-                }}
-              >
-                <div
-                  style={{
-                    fontWeight: "bold",
-                    color: theme.text,
-                    fontSize: "16px",
-                  }}
-                >
-                  アイコン画像アップロード
-                </div>
-
-                <label style={{ fontSize: "14px", color: theme.muted }}>
-                  画像ファイルからアップロード
-                </label>
-
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleAvatarUpload}
-                  disabled={uploading}
-                  style={{
-                    color: theme.text,
-                    fontSize: "14px",
-                  }}
-                />
-
-                <span
-                  style={{
-                    fontSize: "13px",
-                    color: theme.muted,
-                  }}
-                >
-                  {uploading ? "アップロード中..." : "画像を選ぶとアップロードされる"}
-                </span>
-              </div>
-
-              <div
-                style={{
-                  padding: "16px",
-                  borderRadius: "20px",
-                  border: `1px solid ${theme.border}`,
-                  background: theme.card,
-                  boxShadow: "0 10px 28px rgba(0,0,0,0.08)",
-                }}
-              >
-                <div
-                  style={{
-                    fontWeight: "bold",
-                    marginBottom: "14px",
-                    color: theme.text,
-                    fontSize: "16px",
-                  }}
-                >
-                  テーマ設定
-                </div>
-
-                <div
-                  style={{
-                    display: "flex",
-                    gap: "10px",
-                    flexWrap: "wrap",
-                    marginBottom: "14px",
-                  }}
-                >
-                  <button
-                    type="button"
-                    onClick={() => applyPreset("black")}
-                    style={{
-                      background: "#111111",
-                      color: "#ffffff",
-                      border: "1px solid #333333",
-                      padding: "10px 14px",
-                      borderRadius: "9999px",
-                      cursor: "pointer",
-                      fontWeight: "bold",
-                    }}
-                  >
-                    黒
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => applyPreset("white")}
-                    style={{
-                      background: "#ffffff",
-                      color: "#111111",
-                      border: "1px solid #cccccc",
-                      padding: "10px 14px",
-                      borderRadius: "9999px",
-                      cursor: "pointer",
-                      fontWeight: "bold",
-                    }}
-                  >
-                    白
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => applyPreset("navy")}
-                    style={{
-                      background: "#15202b",
-                      color: "#ffffff",
-                      border: "1px solid #2f3336",
-                      padding: "10px 14px",
-                      borderRadius: "9999px",
-                      cursor: "pointer",
-                      fontWeight: "bold",
-                    }}
-                  >
-                    紺
-                  </button>
-                </div>
-
-                <div style={{ display: "grid", gap: "12px" }}>
-                  <input
-                    value={themeBackgroundColor}
-                    onChange={(e) => setThemeBackgroundColor(e.target.value)}
-                    placeholder="背景色 例: #15202b"
-                    style={{
-                      padding: "12px",
-                      borderRadius: "14px",
-                      border: `1px solid ${theme.border}`,
-                      background: theme.background,
-                      color: theme.text,
-                      fontSize: "15px",
-                    }}
-                  />
-
-                  <input
-                    value={themeCardColor}
-                    onChange={(e) => setThemeCardColor(e.target.value)}
-                    placeholder="カード色 例: #192734"
-                    style={{
-                      padding: "12px",
-                      borderRadius: "14px",
-                      border: `1px solid ${theme.border}`,
-                      background: theme.background,
-                      color: theme.text,
-                      fontSize: "15px",
-                    }}
-                  />
-
-                  <input
-                    value={themeTextColor}
-                    onChange={(e) => setThemeTextColor(e.target.value)}
-                    placeholder="文字色 例: #ffffff"
-                    style={{
-                      padding: "12px",
-                      borderRadius: "14px",
-                      border: `1px solid ${theme.border}`,
-                      background: theme.background,
-                      color: theme.text,
-                      fontSize: "15px",
-                    }}
-                  />
-
-                  <input
-                    value={themeAccentColor}
-                    onChange={(e) => setThemeAccentColor(e.target.value)}
-                    placeholder="アクセント色 例: #1d9bf0"
-                    style={{
-                      padding: "12px",
-                      borderRadius: "14px",
-                      border: `1px solid ${theme.border}`,
-                      background: theme.background,
-                      color: theme.text,
-                      fontSize: "15px",
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
-                <button
-                  onClick={handleSaveProfile}
-                  disabled={saving || uploading}
-                  style={{
-                    background: saving || uploading ? "#375a7f" : theme.accent,
-                    color: "#ffffff",
-                    border: "none",
-                    padding: "12px 22px",
-                    borderRadius: "9999px",
-                    fontWeight: 800,
-                    cursor: saving || uploading ? "not-allowed" : "pointer",
-                    boxShadow:
-                      saving || uploading
-                        ? "none"
-                        : "0 8px 20px rgba(29,155,240,0.28)",
-                  }}
-                >
-                  {saving ? "保存中..." : uploading ? "アップロード中..." : "保存"}
-                </button>
-
-                <button
-                  onClick={loadPage}
-                  disabled={loading}
-                  style={{
-                    background: theme.card,
-                    color: theme.text,
-                    border: `1px solid ${theme.border}`,
-                    padding: "12px 20px",
-                    borderRadius: "9999px",
-                    fontWeight: "bold",
-                    cursor: loading ? "not-allowed" : "pointer",
-                  }}
-                >
-                  再読み込み
-                </button>
-              </div>
-            </div>
-          )}
-        </section>
+        )}
 
         <section style={{ padding: "20px" }}>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: "12px",
-              marginBottom: "16px",
-              flexWrap: "wrap",
-            }}
-          >
-            <h2
-              style={{
-                margin: 0,
-                fontSize: "22px",
-                fontWeight: 800,
-                color: theme.text,
-                letterSpacing: "-0.02em",
-              }}
-            >
-              自分の投稿
-            </h2>
-
-            <div
-              style={{
-                color: theme.muted,
-                fontSize: "13px",
-                fontWeight: "bold",
-              }}
-            >
-              最新10件
-            </div>
-          </div>
-
           {loading ? (
             <div
               style={{
@@ -876,82 +333,323 @@ export default function ProfilePage() {
                 background: theme.card,
               }}
             >
-              ログインすると自分の投稿が表示される
-            </div>
-          ) : posts.length === 0 ? (
-            <div
-              style={{
-                border: `1px solid ${theme.border}`,
-                borderRadius: "18px",
-                padding: "18px",
-                color: theme.muted,
-                background: theme.card,
-              }}
-            >
-              まだ自分の投稿がない
+              ログインしてね
             </div>
           ) : (
             <div
               style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "14px",
+                display: "grid",
+                gap: "16px",
               }}
             >
-              {posts.map((post) => (
-                <article
-                  key={post.id}
+              <div
+                style={{
+                  border: `1px solid ${theme.border}`,
+                  borderRadius: "22px",
+                  padding: "20px",
+                  background: theme.card,
+                  boxShadow: "0 10px 28px rgba(0,0,0,0.08)",
+                }}
+              >
+                <div
                   style={{
-                    border: `1px solid ${theme.border}`,
-                    borderRadius: "20px",
-                    padding: "18px",
-                    background: theme.card,
-                    boxShadow: "0 10px 28px rgba(0,0,0,0.08)",
+                    display: "flex",
+                    gap: "18px",
+                    alignItems: "center",
+                    flexWrap: "wrap",
                   }}
                 >
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: "8px",
-                      alignItems: "center",
-                      marginBottom: "10px",
-                      flexWrap: "wrap",
-                    }}
-                  >
-                    <span style={{ fontWeight: "bold", color: theme.text }}>
-                      {displayName || post.user_email || "Ulein"}
-                    </span>
-                    <span style={{ color: theme.muted }}>@{shownId}</span>
-                    <span style={{ color: theme.muted, fontSize: "13px" }}>
-                      ・ {formatDate(post.created_at)}
-                    </span>
+                  {avatarUrl ? (
+                    <img
+                      src={avatarUrl}
+                      alt="avatar"
+                      style={{
+                        width: uiSize.avatar,
+                        height: uiSize.avatar,
+                        borderRadius: "9999px",
+                        objectFit: "cover",
+                        border: `2px solid ${theme.border}`,
+                      }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        width: uiSize.avatar,
+                        height: uiSize.avatar,
+                        borderRadius: "9999px",
+                        background: theme.accent,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: "#ffffff",
+                        fontWeight: "bold",
+                        fontSize: uiSize.avatar / 2.7,
+                      }}
+                    >
+                      {(displayName || "U").slice(0, 1).toUpperCase()}
+                    </div>
+                  )}
+
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div
+                      style={{
+                        fontWeight: "bold",
+                        fontSize: uiSize.text + 4,
+                        marginBottom: "6px",
+                      }}
+                    >
+                      {displayName || "名前未設定"}
+                    </div>
+
+                    <div
+                      style={{
+                        color: theme.muted,
+                        fontSize: uiSize.label,
+                        marginBottom: "10px",
+                        wordBreak: "break-all",
+                      }}
+                    >
+                      {userEmail}
+                    </div>
+
+                    <input type="file" accept="image/*" onChange={handleAvatarChange} />
+
+                    {uploadingAvatar && (
+                      <div
+                        style={{
+                          marginTop: "8px",
+                          color: theme.muted,
+                          fontSize: uiSize.label,
+                        }}
+                      >
+                        アップロード中...
+                      </div>
+                    )}
                   </div>
+                </div>
+              </div>
 
-                  <p
+              <div
+                style={{
+                  border: `1px solid ${theme.border}`,
+                  borderRadius: "22px",
+                  padding: "20px",
+                  background: theme.card,
+                  boxShadow: "0 10px 28px rgba(0,0,0,0.08)",
+                  display: "grid",
+                  gap: "14px",
+                }}
+              >
+                <label style={{ display: "grid", gap: "8px" }}>
+                  <span style={{ fontSize: uiSize.label, fontWeight: "bold" }}>
+                    表示名
+                  </span>
+                  <input
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    placeholder="表示名を入力"
                     style={{
-                      margin: 0,
-                      marginBottom: "12px",
-                      fontSize: "17px",
-                      lineHeight: 1.75,
-                      whiteSpace: "pre-wrap",
+                      padding: "14px",
+                      borderRadius: "14px",
+                      border: `1px solid ${theme.border}`,
+                      background: theme.background,
                       color: theme.text,
-                      wordBreak: "break-word",
+                      fontSize: uiSize.input,
+                      outline: "none",
+                    }}
+                  />
+                </label>
+
+                <label style={{ display: "grid", gap: "8px" }}>
+                  <span style={{ fontSize: uiSize.label, fontWeight: "bold" }}>
+                    自己紹介
+                  </span>
+                  <textarea
+                    value={bio}
+                    onChange={(e) => setBio(e.target.value)}
+                    placeholder="自己紹介を入力"
+                    style={{
+                      minHeight: "120px",
+                      padding: "14px",
+                      borderRadius: "14px",
+                      border: `1px solid ${theme.border}`,
+                      background: theme.background,
+                      color: theme.text,
+                      fontSize: uiSize.input,
+                      outline: "none",
+                      resize: "vertical",
+                    }}
+                  />
+                </label>
+              </div>
+
+              <div
+                style={{
+                  border: `1px solid ${theme.border}`,
+                  borderRadius: "22px",
+                  padding: "20px",
+                  background: theme.card,
+                  boxShadow: "0 10px 28px rgba(0,0,0,0.08)",
+                  display: "grid",
+                  gap: "14px",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: uiSize.text,
+                    fontWeight: "bold",
+                  }}
+                >
+                  テーマ設定
+                </div>
+
+                <label style={{ display: "grid", gap: "8px" }}>
+                  <span style={{ fontSize: uiSize.label, fontWeight: "bold" }}>
+                    背景色
+                  </span>
+                  <input
+                    value={themeBackgroundColor}
+                    onChange={(e) => setThemeBackgroundColor(e.target.value)}
+                    placeholder="#15202b"
+                    style={{
+                      padding: "14px",
+                      borderRadius: "14px",
+                      border: `1px solid ${theme.border}`,
+                      background: theme.background,
+                      color: theme.text,
+                      fontSize: uiSize.input,
+                      outline: "none",
+                    }}
+                  />
+                </label>
+
+                <label style={{ display: "grid", gap: "8px" }}>
+                  <span style={{ fontSize: uiSize.label, fontWeight: "bold" }}>
+                    カード色
+                  </span>
+                  <input
+                    value={themeCardColor}
+                    onChange={(e) => setThemeCardColor(e.target.value)}
+                    placeholder="#192734"
+                    style={{
+                      padding: "14px",
+                      borderRadius: "14px",
+                      border: `1px solid ${theme.border}`,
+                      background: theme.background,
+                      color: theme.text,
+                      fontSize: uiSize.input,
+                      outline: "none",
+                    }}
+                  />
+                </label>
+
+                <label style={{ display: "grid", gap: "8px" }}>
+                  <span style={{ fontSize: uiSize.label, fontWeight: "bold" }}>
+                    文字色
+                  </span>
+                  <input
+                    value={themeTextColor}
+                    onChange={(e) => setThemeTextColor(e.target.value)}
+                    placeholder="#ffffff"
+                    style={{
+                      padding: "14px",
+                      borderRadius: "14px",
+                      border: `1px solid ${theme.border}`,
+                      background: theme.background,
+                      color: theme.text,
+                      fontSize: uiSize.input,
+                      outline: "none",
+                    }}
+                  />
+                </label>
+
+                <label style={{ display: "grid", gap: "8px" }}>
+                  <span style={{ fontSize: uiSize.label, fontWeight: "bold" }}>
+                    アクセント色
+                  </span>
+                  <input
+                    value={themeAccentColor}
+                    onChange={(e) => setThemeAccentColor(e.target.value)}
+                    placeholder="#1d9bf0"
+                    style={{
+                      padding: "14px",
+                      borderRadius: "14px",
+                      border: `1px solid ${theme.border}`,
+                      background: theme.background,
+                      color: theme.text,
+                      fontSize: uiSize.input,
+                      outline: "none",
+                    }}
+                  />
+                </label>
+
+                <label style={{ display: "grid", gap: "8px" }}>
+                  <span style={{ fontSize: uiSize.label, fontWeight: "bold" }}>
+                    表示サイズ
+                  </span>
+                  <select
+                    value={uiScale}
+                    onChange={(e) => setUiScale(e.target.value)}
+                    style={{
+                      padding: "14px",
+                      borderRadius: "14px",
+                      border: `1px solid ${theme.border}`,
+                      background: theme.background,
+                      color: theme.text,
+                      fontSize: uiSize.input,
+                      outline: "none",
                     }}
                   >
-                    {post.content}
-                  </p>
+                    <option value="compact">小さめ</option>
+                    <option value="normal">標準</option>
+                    <option value="large">大きめ</option>
+                  </select>
+                </label>
 
-                  <div
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "10px",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <button
+                    onClick={handleResetTheme}
+                    type="button"
                     style={{
+                      background: "transparent",
                       color: theme.muted,
-                      fontSize: "14px",
+                      border: `1px solid ${theme.border}`,
+                      padding: `${uiSize.buttonPaddingY}px ${uiSize.buttonPaddingX}px`,
+                      borderRadius: "9999px",
+                      cursor: "pointer",
+                      fontSize: uiSize.button,
                       fontWeight: "bold",
                     }}
                   >
-                    ❤️ いいね {post.likes}
-                  </div>
-                </article>
-              ))}
+                    初期値に戻す
+                  </button>
+
+                  <button
+                    onClick={handleSaveProfile}
+                    disabled={saving}
+                    type="button"
+                    style={{
+                      background: theme.accent,
+                      color: "#ffffff",
+                      border: "none",
+                      padding: `${uiSize.buttonPaddingY}px ${uiSize.buttonPaddingX}px`,
+                      borderRadius: "9999px",
+                      cursor: saving ? "not-allowed" : "pointer",
+                      fontSize: uiSize.button,
+                      fontWeight: "bold",
+                      boxShadow: "0 8px 20px rgba(29,155,240,0.28)",
+                    }}
+                  >
+                    {saving ? "保存中..." : "保存する"}
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </section>
