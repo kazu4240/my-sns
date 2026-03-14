@@ -221,7 +221,6 @@ export default function Home() {
       return {
         headerTitle: 22,
         avatar: 40,
-        avatarReply: 28,
         composerAvatar: 44,
         postText: 15,
         replyText: 14,
@@ -242,7 +241,6 @@ export default function Home() {
       return {
         headerTitle: 30,
         avatar: 56,
-        avatarReply: 36,
         composerAvatar: 60,
         postText: 18,
         replyText: 16,
@@ -262,7 +260,6 @@ export default function Home() {
     return {
       headerTitle: 26,
       avatar: 48,
-      avatarReply: 32,
       composerAvatar: 52,
       postText: 17,
       replyText: 15,
@@ -924,53 +921,54 @@ export default function Home() {
 
     return (
       <article
-  key={post.id}
-  style={{
-    display: "flex",
-    gap: isReply ? "8px" : "12px",
-    padding: isReply ? "12px 0 0 0" : "18px 20px",
-    borderBottom: isReply ? "none" : `1px solid ${currentTheme.border}`,
-    marginLeft: "0",
-  }}
->
-        {getAvatarUrl(post) ? (
-          <Link href={profileHref} style={{ flexShrink: 0 }}>
-            <img
-              src={getAvatarUrl(post)!}
-              alt="avatar"
+        key={post.id}
+        style={{
+          display: "flex",
+          gap: isReply ? "0" : "12px",
+          padding: isReply ? "12px 0 0 0" : "18px 20px",
+          borderBottom: isReply ? "none" : `1px solid ${currentTheme.border}`,
+          marginLeft: "0",
+        }}
+      >
+        {!isReply &&
+          (getAvatarUrl(post) ? (
+            <Link href={profileHref} style={{ flexShrink: 0 }}>
+              <img
+                src={getAvatarUrl(post)!}
+                alt="avatar"
+                style={{
+                  width: uiScale.avatar,
+                  height: uiScale.avatar,
+                  borderRadius: "9999px",
+                  objectFit: "cover",
+                  display: "block",
+                  border: `1px solid ${currentTheme.border}`,
+                  boxShadow: "0 4px 14px rgba(0,0,0,0.12)",
+                }}
+              />
+            </Link>
+          ) : (
+            <Link
+              href={profileHref}
               style={{
-                width: isReply ? uiScale.avatarReply : uiScale.avatar,
-                height: isReply ? uiScale.avatarReply : uiScale.avatar,
+                width: uiScale.avatar,
+                height: uiScale.avatar,
                 borderRadius: "9999px",
-                objectFit: "cover",
-                display: "block",
-                border: `1px solid ${currentTheme.border}`,
+                background: currentTheme.accent,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontWeight: "bold",
+                flexShrink: 0,
+                color: "#ffffff",
+                textDecoration: "none",
                 boxShadow: "0 4px 14px rgba(0,0,0,0.12)",
+                fontSize: uiScale.postText,
               }}
-            />
-          </Link>
-        ) : (
-          <Link
-            href={profileHref}
-            style={{
-              width: isReply ? uiScale.avatarReply : uiScale.avatar,
-              height: isReply ? uiScale.avatarReply : uiScale.avatar,
-              borderRadius: "9999px",
-              background: currentTheme.accent,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontWeight: "bold",
-              flexShrink: 0,
-              color: "#ffffff",
-              textDecoration: "none",
-              boxShadow: "0 4px 14px rgba(0,0,0,0.12)",
-              fontSize: isReply ? uiScale.replyText : uiScale.postText,
-            }}
-          >
-            {getDisplayName(post).slice(0, 1).toUpperCase()}
-          </Link>
-        )}
+            >
+              {getDisplayName(post).slice(0, 1).toUpperCase()}
+            </Link>
+          ))}
 
         <div style={{ flex: 1, minWidth: 0 }}>
           <div
@@ -1046,74 +1044,76 @@ export default function Home() {
                 )}
               </div>
 
-              <div style={{ position: "relative", flexShrink: 0 }}>
-                <button
-                  onClick={(e: ReactMouseEvent<HTMLButtonElement>) => {
-                    e.stopPropagation();
-                    setOpenMenuPostId((prev) => (prev === post.id ? null : post.id));
-                  }}
-                  style={{
-                    background: "transparent",
-                    border: "none",
-                    padding: "6px",
-                    borderRadius: "9999px",
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <MoreIcon size={uiScale.menuIcon} color={currentTheme.muted} />
-                </button>
-
-                {isMenuOpen && (
-                  <div
-                    onClick={(e) => e.stopPropagation()}
+              {!isReply && (
+                <div style={{ position: "relative", flexShrink: 0 }}>
+                  <button
+                    onClick={(e: ReactMouseEvent<HTMLButtonElement>) => {
+                      e.stopPropagation();
+                      setOpenMenuPostId((prev) => (prev === post.id ? null : post.id));
+                    }}
                     style={{
-                      position: "absolute",
-                      right: 0,
-                      top: "38px",
-                      minWidth: "140px",
-                      background: currentTheme.background,
-                      border: `1px solid ${currentTheme.border}`,
-                      borderRadius: "14px",
-                      overflow: "hidden",
-                      boxShadow: "0 18px 40px rgba(0,0,0,0.22)",
-                      zIndex: 50,
+                      background: "transparent",
+                      border: "none",
+                      padding: "6px",
+                      borderRadius: "9999px",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
                     }}
                   >
-                    {isOwner ? (
-                      <>
-                        <button onClick={() => handleEdit(post)} style={menuItemStyle}>
-                          編集
-                        </button>
-                        <button
-                          onClick={() => handleDelete(post)}
+                    <MoreIcon size={uiScale.menuIcon} color={currentTheme.muted} />
+                  </button>
+
+                  {isMenuOpen && (
+                    <div
+                      onClick={(e) => e.stopPropagation()}
+                      style={{
+                        position: "absolute",
+                        right: 0,
+                        top: "38px",
+                        minWidth: "140px",
+                        background: currentTheme.background,
+                        border: `1px solid ${currentTheme.border}`,
+                        borderRadius: "14px",
+                        overflow: "hidden",
+                        boxShadow: "0 18px 40px rgba(0,0,0,0.22)",
+                        zIndex: 50,
+                      }}
+                    >
+                      {isOwner ? (
+                        <>
+                          <button onClick={() => handleEdit(post)} style={menuItemStyle}>
+                            編集
+                          </button>
+                          <button
+                            onClick={() => handleDelete(post)}
+                            style={{
+                              ...menuItemStyle,
+                              color: "#ff6b6b",
+                            }}
+                          >
+                            削除
+                          </button>
+                        </>
+                      ) : (
+                        <Link
+                          href={`/report/post/${post.id}`}
+                          onClick={() => setOpenMenuPostId(null)}
                           style={{
+                            display: "block",
                             ...menuItemStyle,
                             color: "#ff6b6b",
+                            textDecoration: "none",
                           }}
                         >
-                          削除
-                        </button>
-                      </>
-                    ) : (
-                      <Link
-                        href={`/report/post/${post.id}`}
-                        onClick={() => setOpenMenuPostId(null)}
-                        style={{
-                          display: "block",
-                          ...menuItemStyle,
-                          color: "#ff6b6b",
-                          textDecoration: "none",
-                        }}
-                      >
-                        通報
-                      </Link>
-                    )}
-                  </div>
-                )}
-              </div>
+                          通報
+                        </Link>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <p
@@ -1228,17 +1228,17 @@ export default function Home() {
           </div>
 
           {!isReply && replies.length > 0 && (
-  <div
-    style={{
-      marginTop: "10px",
-      marginLeft: "2px",
-      paddingLeft: "8px",
-      borderLeft: `2px solid ${currentTheme.border}`,
-    }}
-  >
-    {replies.map((reply) => renderPostCard(reply, true))}
-  </div>
-)}
+            <div
+              style={{
+                marginTop: "10px",
+                marginLeft: "2px",
+                paddingLeft: "8px",
+                borderLeft: `2px solid ${currentTheme.border}`,
+              }}
+            >
+              {replies.map((reply) => renderPostCard(reply, true))}
+            </div>
+          )}
         </div>
       </article>
     );
