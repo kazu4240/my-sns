@@ -19,12 +19,22 @@ type Profile = {
   display_name: string | null;
   bio: string | null;
   avatar_url: string | null;
+  theme_background_color?: string | null;
+  theme_card_color?: string | null;
+  theme_text_color?: string | null;
+  theme_accent_color?: string | null;
 };
 
 type Post = {
   id: number;
   content: string;
 };
+
+const DEFAULT_BACKGROUND = "#15202b";
+const DEFAULT_CARD = "#192734";
+const DEFAULT_TEXT = "#ffffff";
+const DEFAULT_ACCENT = "#1d9bf0";
+const DEFAULT_BORDER = "#2f3336";
 
 export default function NotificationsPage() {
   const [loading, setLoading] = useState(true);
@@ -34,9 +44,60 @@ export default function NotificationsPage() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
 
+  const [themeBackgroundColor, setThemeBackgroundColor] = useState(DEFAULT_BACKGROUND);
+  const [themeCardColor, setThemeCardColor] = useState(DEFAULT_CARD);
+  const [themeTextColor, setThemeTextColor] = useState(DEFAULT_TEXT);
+  const [themeAccentColor, setThemeAccentColor] = useState(DEFAULT_ACCENT);
+
   const unreadCount = useMemo(() => {
     return notifications.filter((item) => !item.is_read).length;
   }, [notifications]);
+
+  const theme = useMemo(() => {
+    const textColor = themeTextColor || DEFAULT_TEXT;
+
+    return {
+      background: themeBackgroundColor || DEFAULT_BACKGROUND,
+      card: themeCardColor || DEFAULT_CARD,
+      text: textColor,
+      accent: themeAccentColor || DEFAULT_ACCENT,
+      border: DEFAULT_BORDER,
+      muted: textColor === "#000000" ? "#555555" : "#8899a6",
+      softText: textColor === "#000000" ? "#444444" : "#cfd9de",
+    };
+  }, [themeBackgroundColor, themeCardColor, themeTextColor, themeAccentColor]);
+
+  const loadTheme = async (userId: string | null) => {
+    if (!userId) {
+      setThemeBackgroundColor(DEFAULT_BACKGROUND);
+      setThemeCardColor(DEFAULT_CARD);
+      setThemeTextColor(DEFAULT_TEXT);
+      setThemeAccentColor(DEFAULT_ACCENT);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("profiles")
+      .select(
+        "theme_background_color, theme_card_color, theme_text_color, theme_accent_color"
+      )
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (error) {
+      console.error(error);
+      setThemeBackgroundColor(DEFAULT_BACKGROUND);
+      setThemeCardColor(DEFAULT_CARD);
+      setThemeTextColor(DEFAULT_TEXT);
+      setThemeAccentColor(DEFAULT_ACCENT);
+      return;
+    }
+
+    setThemeBackgroundColor(data?.theme_background_color ?? DEFAULT_BACKGROUND);
+    setThemeCardColor(data?.theme_card_color ?? DEFAULT_CARD);
+    setThemeTextColor(data?.theme_text_color ?? DEFAULT_TEXT);
+    setThemeAccentColor(data?.theme_accent_color ?? DEFAULT_ACCENT);
+  };
 
   const loadNotifications = async () => {
     setLoading(true);
@@ -57,11 +118,13 @@ export default function NotificationsPage() {
         setNotifications([]);
         setProfiles({});
         setPosts({});
+        await loadTheme(null);
         setLoading(false);
         return;
       }
 
       setCurrentUserId(user.id);
+      await loadTheme(user.id);
 
       const { data, error } = await supabase
         .from("notifications")
@@ -208,7 +271,7 @@ export default function NotificationsPage() {
 
   const getNotificationAccent = (item: Notification) => {
     if (item.type === "like") return "#ff6b81";
-    if (item.type === "reply") return "#1d9bf0";
+    if (item.type === "reply") return theme.accent;
     return "#22c55e";
   };
 
@@ -216,8 +279,8 @@ export default function NotificationsPage() {
     <main
       style={{
         minHeight: "100vh",
-        background: "#15202b",
-        color: "white",
+        background: theme.background,
+        color: theme.text,
         fontFamily:
           'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
       }}
@@ -226,10 +289,10 @@ export default function NotificationsPage() {
         style={{
           maxWidth: "720px",
           margin: "0 auto",
-          borderLeft: "1px solid #2f3336",
-          borderRight: "1px solid #2f3336",
+          borderLeft: `1px solid ${theme.border}`,
+          borderRight: `1px solid ${theme.border}`,
           minHeight: "100vh",
-          background: "#15202b",
+          background: theme.background,
           boxShadow: "0 0 0 1px rgba(0,0,0,0.02)",
         }}
       >
@@ -237,9 +300,9 @@ export default function NotificationsPage() {
           style={{
             position: "sticky",
             top: 0,
-            background: "rgba(21,32,43,0.93)",
+            background: `${theme.background}ee`,
             backdropFilter: "blur(14px)",
-            borderBottom: "1px solid #2f3336",
+            borderBottom: `1px solid ${theme.border}`,
             padding: "16px 20px 14px",
             zIndex: 20,
           }}
@@ -247,7 +310,7 @@ export default function NotificationsPage() {
           <Link
             href="/"
             style={{
-              color: "#1d9bf0",
+              color: theme.accent,
               textDecoration: "none",
               fontSize: "14px",
               display: "inline-block",
@@ -274,6 +337,7 @@ export default function NotificationsPage() {
                   fontWeight: 800,
                   letterSpacing: "-0.02em",
                   marginBottom: "6px",
+                  color: theme.text,
                 }}
               >
                 Ulein
@@ -281,7 +345,7 @@ export default function NotificationsPage() {
 
               <div
                 style={{
-                  color: "#8899a6",
+                  color: theme.muted,
                   fontSize: "14px",
                 }}
               >
@@ -292,9 +356,9 @@ export default function NotificationsPage() {
             <button
               onClick={markAllAsRead}
               style={{
-                background: "#192734",
-                color: "#1d9bf0",
-                border: "1px solid #2f3336",
+                background: theme.card,
+                color: theme.accent,
+                border: `1px solid ${theme.border}`,
                 padding: "10px 16px",
                 borderRadius: "9999px",
                 cursor: "pointer",
@@ -327,11 +391,11 @@ export default function NotificationsPage() {
           {loading ? (
             <div
               style={{
-                border: "1px solid #2f3336",
+                border: `1px solid ${theme.border}`,
                 borderRadius: "20px",
                 padding: "18px",
-                color: "#8899a6",
-                background: "#192734",
+                color: theme.muted,
+                background: theme.card,
               }}
             >
               読み込み中...
@@ -339,11 +403,11 @@ export default function NotificationsPage() {
           ) : notifications.length === 0 ? (
             <div
               style={{
-                border: "1px solid #2f3336",
+                border: `1px solid ${theme.border}`,
                 borderRadius: "20px",
                 padding: "22px",
-                color: "#8899a6",
-                background: "#192734",
+                color: theme.muted,
+                background: theme.card,
                 textAlign: "center",
                 boxShadow: "0 10px 28px rgba(0,0,0,0.08)",
               }}
@@ -372,10 +436,10 @@ export default function NotificationsPage() {
                       gap: "14px",
                       padding: "18px",
                       border: item.is_read
-                        ? "1px solid #2f3336"
+                        ? `1px solid ${theme.border}`
                         : `1px solid ${accentColor}55`,
                       borderRadius: "22px",
-                      background: item.is_read ? "#192734" : "#173144",
+                      background: item.is_read ? theme.card : `${theme.card}`,
                       boxShadow: item.is_read
                         ? "0 10px 28px rgba(0,0,0,0.08)"
                         : "0 12px 30px rgba(0,0,0,0.12)",
@@ -391,7 +455,7 @@ export default function NotificationsPage() {
                             height: "52px",
                             borderRadius: "9999px",
                             objectFit: "cover",
-                            border: "1px solid #2f3336",
+                            border: `1px solid ${theme.border}`,
                             display: "block",
                             boxShadow: "0 6px 18px rgba(0,0,0,0.14)",
                           }}
@@ -432,7 +496,7 @@ export default function NotificationsPage() {
                         <Link
                           href={actorHref}
                           style={{
-                            color: "white",
+                            color: theme.text,
                             fontWeight: "bold",
                             textDecoration: "none",
                             fontSize: "15px",
@@ -462,14 +526,14 @@ export default function NotificationsPage() {
                               padding: "4px 8px",
                               borderRadius: "9999px",
                               background: "rgba(255,255,255,0.08)",
-                              color: "#ffffff",
+                              color: theme.text,
                             }}
                           >
                             未読
                           </span>
                         )}
 
-                        <span style={{ color: "#8899a6", fontSize: "13px" }}>
+                        <span style={{ color: theme.muted, fontSize: "13px" }}>
                           ・ {formatDate(item.created_at)}
                         </span>
                       </div>
@@ -478,7 +542,7 @@ export default function NotificationsPage() {
                         style={{
                           margin: 0,
                           marginBottom: relatedPost ? "12px" : "0",
-                          color: "white",
+                          color: theme.text,
                           lineHeight: 1.7,
                           fontSize: "15px",
                         }}
@@ -491,14 +555,14 @@ export default function NotificationsPage() {
                           href={`/posts/${relatedPost.id}`}
                           style={{
                             display: "block",
-                            border: "1px solid #2f3336",
+                            border: `1px solid ${theme.border}`,
                             borderRadius: "16px",
                             padding: "14px",
-                            color: "#cfd9de",
+                            color: theme.softText,
                             fontSize: "14px",
                             whiteSpace: "pre-wrap",
                             textDecoration: "none",
-                            background: "#15202b",
+                            background: theme.background,
                             lineHeight: 1.7,
                             wordBreak: "break-word",
                           }}
