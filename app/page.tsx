@@ -221,7 +221,7 @@ export default function Home() {
       return {
         headerTitle: 22,
         avatar: 40,
-        avatarReply: 34,
+        avatarReply: 28,
         composerAvatar: 44,
         postText: 15,
         replyText: 14,
@@ -242,7 +242,7 @@ export default function Home() {
       return {
         headerTitle: 30,
         avatar: 56,
-        avatarReply: 46,
+        avatarReply: 36,
         composerAvatar: 60,
         postText: 18,
         replyText: 16,
@@ -262,7 +262,7 @@ export default function Home() {
     return {
       headerTitle: 26,
       avatar: 48,
-      avatarReply: 40,
+      avatarReply: 32,
       composerAvatar: 52,
       postText: 17,
       replyText: 15,
@@ -927,7 +927,7 @@ export default function Home() {
   key={post.id}
   style={{
     display: "flex",
-    gap: isReply ? "10px" : "12px",
+    gap: isReply ? "8px" : "12px",
     padding: isReply ? "12px 0 0 0" : "18px 20px",
     borderBottom: isReply ? "none" : `1px solid ${currentTheme.border}`,
     marginLeft: "0",
@@ -1231,8 +1231,8 @@ export default function Home() {
   <div
     style={{
       marginTop: "10px",
-      marginLeft: "6px",
-      paddingLeft: "12px",
+      marginLeft: "2px",
+      paddingLeft: "8px",
       borderLeft: `2px solid ${currentTheme.border}`,
     }}
   >
