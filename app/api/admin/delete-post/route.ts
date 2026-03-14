@@ -28,11 +28,16 @@ export async function POST(request: NextRequest) {
     const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceRoleKey) {
-      return NextResponse.json(
-        { error: "環境変数が足りません" },
-        { status: 500 }
-      );
-    }
+  return NextResponse.json(
+    {
+      error: "環境変数が足りません",
+      hasSupabaseUrl: !!supabaseUrl,
+      hasSupabaseAnonKey: !!supabaseAnonKey,
+      hasSupabaseServiceRoleKey: !!supabaseServiceRoleKey,
+    },
+    { status: 500 }
+  );
+}
 
     const userClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: {
