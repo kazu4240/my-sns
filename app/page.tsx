@@ -734,6 +734,24 @@ export default function Home() {
                 </button>
               )}
 
+              {!isOwner && (
+                <Link
+                  href={`/report/post/${post.id}`}
+                  style={{
+                    background: "transparent",
+                    color: "#ff6b6b",
+                    border: `1px solid ${currentTheme.border}`,
+                    padding: "8px 14px",
+                    borderRadius: "9999px",
+                    textDecoration: "none",
+                    fontSize: "13px",
+                    fontWeight: "bold",
+                  }}
+                >
+                  🚨 通報
+                </Link>
+              )}
+
               {isOwner && (
                 <>
                   <button

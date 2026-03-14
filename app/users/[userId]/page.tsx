@@ -692,12 +692,39 @@ export default function UserProfilePage({
                   <div
                     style={{
                       marginTop: "12px",
-                      color: theme.muted,
-                      fontSize: "14px",
-                      fontWeight: "bold",
+                      display: "flex",
+                      gap: "10px",
+                      flexWrap: "wrap",
+                      alignItems: "center",
                     }}
                   >
-                    ❤️ いいね {post.likes}
+                    <span
+                      style={{
+                        color: theme.muted,
+                        fontSize: "14px",
+                        fontWeight: "bold",
+                      }}
+                    >
+                      ❤️ いいね {post.likes}
+                    </span>
+
+                    {!isMyPage && (
+                      <Link
+                        href={`/report/post/${post.id}`}
+                        style={{
+                          background: "transparent",
+                          color: "#ff6b6b",
+                          border: `1px solid ${theme.border}`,
+                          padding: "8px 14px",
+                          borderRadius: "9999px",
+                          textDecoration: "none",
+                          fontSize: "13px",
+                          fontWeight: "bold",
+                        }}
+                      >
+                        🚨 通報
+                      </Link>
+                    )}
                   </div>
                 </article>
               ))}
