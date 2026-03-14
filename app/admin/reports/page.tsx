@@ -46,6 +46,7 @@ export default function AdminReportsPage() {
   const [profiles, setProfiles] = useState<Record<string, Profile>>({});
   const [posts, setPosts] = useState<Record<number, Post>>({});
   const [errorMessage, setErrorMessage] = useState("");
+  const [deletingPostId, setDeletingPostId] = useState<number | null>(null);
 
   const [themeBackgroundColor, setThemeBackgroundColor] = useState(DEFAULT_BACKGROUND);
   const [themeCardColor, setThemeCardColor] = useState(DEFAULT_CARD);
@@ -211,6 +212,57 @@ export default function AdminReportsPage() {
   const getUserName = (userId: string | null) => {
     if (!userId) return "不明";
     return profiles[userId]?.display_name || userId;
+  };
+
+  const handleAdminDeletePost = async (postId: number) => {
+    const ok = window.confirm("この投稿を管理者権限で削除します。よろしいですか？");
+    if (!ok) return;
+
+    setDeletingPostId(postId);
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      const accessToken = session?.access_token;
+
+      if (!accessToken) {
+        alert("ログイン情報が見つかりません");
+        setDeletingPostId(null);
+        return;
+      }
+
+      const response = await fetch("/api/admin/delete-post", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ postId }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        alert("削除失敗: " + (result.error || "不明なエラー"));
+        setDeletingPostId(null);
+        return;
+      }
+
+      setPosts((prev) => {
+        const next = { ...prev };
+        delete next[postId];
+        return next;
+      });
+
+      alert("投稿を削除しました");
+    } catch (error) {
+      console.error(error);
+      alert("投稿削除に失敗しました");
+    } finally {
+      setDeletingPostId(null);
+    }
   };
 
   return (
@@ -423,23 +475,53 @@ export default function AdminReportsPage() {
                             color: theme.text,
                             whiteSpace: "pre-wrap",
                             lineHeight: 1.7,
-                            marginBottom: "10px",
+                            marginBottom: "12px",
                           }}
                         >
                           {post.content}
                         </div>
 
-                        <Link
-                          href={`/posts/${post.id}`}
+                        <div
                           style={{
-                            color: theme.accent,
-                            textDecoration: "none",
-                            fontSize: "14px",
-                            fontWeight: "bold",
+                            display: "flex",
+                            gap: "10px",
+                            flexWrap: "wrap",
+                            alignItems: "center",
                           }}
                         >
-                          投稿を見る
-                        </Link>
+                          <Link
+                            href={`/posts/${post.id}`}
+                            style={{
+                              color: theme.accent,
+                              textDecoration: "none",
+                              fontSize: "14px",
+                              fontWeight: "bold",
+                            }}
+                          >
+                            投稿を見る
+                          </Link>
+
+                          <button
+                            onClick={() => handleAdminDeletePost(post.id)}
+                            disabled={deletingPostId === post.id}
+                            style={{
+                              background:
+                                deletingPostId === post.id ? "#7a3a3a" : "#ff6b6b",
+                              color: "#ffffff",
+                              border: "none",
+                              padding: "8px 14px",
+                              borderRadius: "9999px",
+                              fontSize: "13px",
+                              fontWeight: "bold",
+                              cursor:
+                                deletingPostId === post.id ? "not-allowed" : "pointer",
+                            }}
+                          >
+                            {deletingPostId === post.id
+                              ? "削除中..."
+                              : "管理者として削除"}
+                          </button>
+                        </div>
                       </div>
                     ) : (
                       <div
