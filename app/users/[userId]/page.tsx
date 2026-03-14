@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useMemo, useState } from "react";
 import { supabase } from "../../../lib/supabase";
 
 type Post = {
@@ -20,7 +20,17 @@ type Profile = {
   display_name: string | null;
   bio: string | null;
   avatar_url: string | null;
+  theme_background_color?: string | null;
+  theme_card_color?: string | null;
+  theme_text_color?: string | null;
+  theme_accent_color?: string | null;
 };
+
+const DEFAULT_BACKGROUND = "#15202b";
+const DEFAULT_CARD = "#192734";
+const DEFAULT_TEXT = "#ffffff";
+const DEFAULT_ACCENT = "#1d9bf0";
+const DEFAULT_BORDER = "#2f3336";
 
 export default function UserProfilePage({
   params,
@@ -40,6 +50,57 @@ export default function UserProfilePage({
   const [followingCount, setFollowingCount] = useState(0);
   const [errorMessage, setErrorMessage] = useState("");
 
+  const [themeBackgroundColor, setThemeBackgroundColor] = useState(DEFAULT_BACKGROUND);
+  const [themeCardColor, setThemeCardColor] = useState(DEFAULT_CARD);
+  const [themeTextColor, setThemeTextColor] = useState(DEFAULT_TEXT);
+  const [themeAccentColor, setThemeAccentColor] = useState(DEFAULT_ACCENT);
+
+  const theme = useMemo(() => {
+    const textColor = themeTextColor || DEFAULT_TEXT;
+
+    return {
+      background: themeBackgroundColor || DEFAULT_BACKGROUND,
+      card: themeCardColor || DEFAULT_CARD,
+      text: textColor,
+      accent: themeAccentColor || DEFAULT_ACCENT,
+      border: DEFAULT_BORDER,
+      muted: textColor === "#000000" ? "#555555" : "#8899a6",
+      softText: textColor === "#000000" ? "#444444" : "#cfd9de",
+    };
+  }, [themeBackgroundColor, themeCardColor, themeTextColor, themeAccentColor]);
+
+  const loadMyTheme = async (signedInUserId: string | null) => {
+    if (!signedInUserId) {
+      setThemeBackgroundColor(DEFAULT_BACKGROUND);
+      setThemeCardColor(DEFAULT_CARD);
+      setThemeTextColor(DEFAULT_TEXT);
+      setThemeAccentColor(DEFAULT_ACCENT);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("profiles")
+      .select(
+        "theme_background_color, theme_card_color, theme_text_color, theme_accent_color"
+      )
+      .eq("user_id", signedInUserId)
+      .maybeSingle();
+
+    if (error) {
+      console.error(error);
+      setThemeBackgroundColor(DEFAULT_BACKGROUND);
+      setThemeCardColor(DEFAULT_CARD);
+      setThemeTextColor(DEFAULT_TEXT);
+      setThemeAccentColor(DEFAULT_ACCENT);
+      return;
+    }
+
+    setThemeBackgroundColor(data?.theme_background_color ?? DEFAULT_BACKGROUND);
+    setThemeCardColor(data?.theme_card_color ?? DEFAULT_CARD);
+    setThemeTextColor(data?.theme_text_color ?? DEFAULT_TEXT);
+    setThemeAccentColor(data?.theme_accent_color ?? DEFAULT_ACCENT);
+  };
+
   const loadUserPage = async () => {
     setLoading(true);
     setErrorMessage("");
@@ -56,6 +117,8 @@ export default function UserProfilePage({
 
       const signedInUserId = user?.id ?? null;
       setCurrentUserId(signedInUserId);
+
+      await loadMyTheme(signedInUserId);
 
       const [
         profileResult,
@@ -236,8 +299,8 @@ export default function UserProfilePage({
     <main
       style={{
         minHeight: "100vh",
-        background: "#15202b",
-        color: "white",
+        background: theme.background,
+        color: theme.text,
         fontFamily:
           'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
       }}
@@ -246,10 +309,10 @@ export default function UserProfilePage({
         style={{
           maxWidth: "720px",
           margin: "0 auto",
-          borderLeft: "1px solid #2f3336",
-          borderRight: "1px solid #2f3336",
+          borderLeft: `1px solid ${theme.border}`,
+          borderRight: `1px solid ${theme.border}`,
           minHeight: "100vh",
-          background: "#15202b",
+          background: theme.background,
           boxShadow: "0 0 0 1px rgba(0,0,0,0.02)",
         }}
       >
@@ -257,9 +320,9 @@ export default function UserProfilePage({
           style={{
             position: "sticky",
             top: 0,
-            background: "rgba(21,32,43,0.93)",
+            background: `${theme.background}ee`,
             backdropFilter: "blur(14px)",
-            borderBottom: "1px solid #2f3336",
+            borderBottom: `1px solid ${theme.border}`,
             padding: "16px 20px 14px",
             zIndex: 20,
           }}
@@ -267,7 +330,7 @@ export default function UserProfilePage({
           <Link
             href="/"
             style={{
-              color: "#1d9bf0",
+              color: theme.accent,
               textDecoration: "none",
               fontSize: "14px",
               display: "inline-block",
@@ -294,6 +357,7 @@ export default function UserProfilePage({
                   fontWeight: 800,
                   letterSpacing: "-0.02em",
                   marginBottom: "6px",
+                  color: theme.text,
                 }}
               >
                 Ulein
@@ -301,7 +365,7 @@ export default function UserProfilePage({
 
               <div
                 style={{
-                  color: "#8899a6",
+                  color: theme.muted,
                   fontSize: "14px",
                 }}
               >
@@ -329,13 +393,13 @@ export default function UserProfilePage({
         <section
           style={{
             padding: "22px 20px 20px",
-            borderBottom: "1px solid #2f3336",
+            borderBottom: `1px solid ${theme.border}`,
           }}
         >
           <div
             style={{
-              background: "#192734",
-              border: "1px solid #2f3336",
+              background: theme.card,
+              border: `1px solid ${theme.border}`,
               borderRadius: "24px",
               padding: "20px",
               boxShadow: "0 12px 32px rgba(0,0,0,0.10)",
@@ -358,7 +422,7 @@ export default function UserProfilePage({
                     height: "92px",
                     borderRadius: "9999px",
                     objectFit: "cover",
-                    border: "2px solid #2f3336",
+                    border: `2px solid ${theme.border}`,
                     boxShadow: "0 8px 20px rgba(0,0,0,0.14)",
                   }}
                 />
@@ -368,7 +432,7 @@ export default function UserProfilePage({
                     width: "92px",
                     height: "92px",
                     borderRadius: "9999px",
-                    background: "#1d9bf0",
+                    background: theme.accent,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -390,6 +454,7 @@ export default function UserProfilePage({
                     fontWeight: 800,
                     letterSpacing: "-0.02em",
                     wordBreak: "break-all",
+                    color: theme.text,
                   }}
                 >
                   {shownName}
@@ -399,7 +464,7 @@ export default function UserProfilePage({
                   style={{
                     marginTop: "6px",
                     marginBottom: "14px",
-                    color: "#8899a6",
+                    color: theme.muted,
                     fontSize: "15px",
                     wordBreak: "break-all",
                   }}
@@ -413,7 +478,7 @@ export default function UserProfilePage({
                     fontSize: "15px",
                     lineHeight: 1.7,
                     whiteSpace: "pre-wrap",
-                    color: "#cfd9de",
+                    color: theme.softText,
                     wordBreak: "break-word",
                   }}
                 >
@@ -434,10 +499,10 @@ export default function UserProfilePage({
               <Link
                 href={`/users/${userId}/followers`}
                 style={{
-                  color: "#cfd9de",
+                  color: theme.softText,
                   textDecoration: "none",
-                  border: "1px solid #2f3336",
-                  background: "#15202b",
+                  border: `1px solid ${theme.border}`,
+                  background: theme.background,
                   padding: "10px 14px",
                   borderRadius: "9999px",
                   fontSize: "14px",
@@ -450,10 +515,10 @@ export default function UserProfilePage({
               <Link
                 href={`/users/${userId}/following`}
                 style={{
-                  color: "#cfd9de",
+                  color: theme.softText,
                   textDecoration: "none",
-                  border: "1px solid #2f3336",
-                  background: "#15202b",
+                  border: `1px solid ${theme.border}`,
+                  background: theme.background,
                   padding: "10px 14px",
                   borderRadius: "9999px",
                   fontSize: "14px",
@@ -468,9 +533,9 @@ export default function UserProfilePage({
                   onClick={handleFollowToggle}
                   disabled={followLoading}
                   style={{
-                    background: isFollowing ? "#22303c" : "#1d9bf0",
-                    color: "white",
-                    border: isFollowing ? "1px solid #2f3336" : "none",
+                    background: isFollowing ? "#22303c" : theme.accent,
+                    color: "#ffffff",
+                    border: isFollowing ? `1px solid ${theme.border}` : "none",
                     padding: "11px 18px",
                     borderRadius: "9999px",
                     fontSize: "14px",
@@ -509,6 +574,7 @@ export default function UserProfilePage({
                 fontSize: "22px",
                 fontWeight: 800,
                 letterSpacing: "-0.02em",
+                color: theme.text,
               }}
             >
               この人の投稿
@@ -516,7 +582,7 @@ export default function UserProfilePage({
 
             <div
               style={{
-                color: "#8899a6",
+                color: theme.muted,
                 fontSize: "13px",
                 fontWeight: "bold",
               }}
@@ -528,11 +594,11 @@ export default function UserProfilePage({
           {loading ? (
             <div
               style={{
-                border: "1px solid #2f3336",
+                border: `1px solid ${theme.border}`,
                 borderRadius: "18px",
                 padding: "18px",
-                color: "#8899a6",
-                background: "#192734",
+                color: theme.muted,
+                background: theme.card,
               }}
             >
               読み込み中...
@@ -540,11 +606,11 @@ export default function UserProfilePage({
           ) : posts.length === 0 ? (
             <div
               style={{
-                border: "1px solid #2f3336",
+                border: `1px solid ${theme.border}`,
                 borderRadius: "18px",
                 padding: "18px",
-                color: "#8899a6",
-                background: "#192734",
+                color: theme.muted,
+                background: theme.card,
               }}
             >
               まだ投稿がない
@@ -561,10 +627,10 @@ export default function UserProfilePage({
                 <article
                   key={post.id}
                   style={{
-                    border: "1px solid #2f3336",
+                    border: `1px solid ${theme.border}`,
                     borderRadius: "20px",
                     padding: "18px",
-                    background: "#192734",
+                    background: theme.card,
                     boxShadow: "0 10px 28px rgba(0,0,0,0.08)",
                   }}
                 >
@@ -577,11 +643,11 @@ export default function UserProfilePage({
                       flexWrap: "wrap",
                     }}
                   >
-                    <span style={{ fontWeight: "bold", color: "white" }}>
+                    <span style={{ fontWeight: "bold", color: theme.text }}>
                       {shownName}
                     </span>
-                    <span style={{ color: "#8899a6" }}>@{shownId}</span>
-                    <span style={{ color: "#8899a6", fontSize: "13px" }}>
+                    <span style={{ color: theme.muted }}>@{shownId}</span>
+                    <span style={{ color: theme.muted, fontSize: "13px" }}>
                       ・ {formatDate(post.created_at)}
                     </span>
                   </div>
@@ -594,7 +660,7 @@ export default function UserProfilePage({
                       lineHeight: 1.75,
                       whiteSpace: "pre-wrap",
                       wordBreak: "break-word",
-                      color: "white",
+                      color: theme.text,
                     }}
                   >
                     {post.content}
@@ -604,10 +670,10 @@ export default function UserProfilePage({
                     <div
                       style={{
                         marginTop: "12px",
-                        border: "1px solid #2f3336",
+                        border: `1px solid ${theme.border}`,
                         borderRadius: "18px",
                         overflow: "hidden",
-                        background: "#15202b",
+                        background: theme.background,
                       }}
                     >
                       <img
@@ -626,7 +692,7 @@ export default function UserProfilePage({
                   <div
                     style={{
                       marginTop: "12px",
-                      color: "#8899a6",
+                      color: theme.muted,
                       fontSize: "14px",
                       fontWeight: "bold",
                     }}
