@@ -186,15 +186,16 @@ export default function ProfilePage() {
   };
 
   const handleSaveProfile = async () => {
-    if (!userId) {
-      alert("ログインしてね");
-      return;
-    }
+  if (!userId) {
+    alert("ログインしてね");
+    return;
+  }
 
-    setSaving(true);
+  setSaving(true);
 
-    try {
-      const { error } = await supabase.from("profiles").upsert({
+  try {
+    const { error } = await supabase.from("profiles").upsert(
+      {
         user_id: userId,
         display_name: displayName.trim() || null,
         bio: bio.trim() || null,
@@ -204,22 +205,26 @@ export default function ProfilePage() {
         theme_text_color: themeTextColor,
         theme_accent_color: themeAccentColor,
         ui_scale: uiScale,
-      });
-
-      if (error) {
-        alert("保存失敗: " + error.message);
-        setSaving(false);
-        return;
+      },
+      {
+        onConflict: "user_id",
       }
+    );
 
-      alert("プロフィールを保存しました");
-    } catch (error) {
-      console.error(error);
-      alert("保存に失敗しました");
-    } finally {
+    if (error) {
+      alert("保存失敗: " + error.message);
       setSaving(false);
+      return;
     }
-  };
+
+    alert("プロフィールを保存しました");
+  } catch (error) {
+    console.error(error);
+    alert("保存に失敗しました");
+  } finally {
+    setSaving(false);
+  }
+};
 
   const handleResetTheme = () => {
     setThemeBackgroundColor(DEFAULT_BACKGROUND);
