@@ -33,6 +33,8 @@ type NotificationInsert = {
   post_id: number | null;
 };
 
+type HomeTab = "all" | "following" | "popular";
+
 const DEFAULT_BACKGROUND = "#15202b";
 const DEFAULT_CARD = "#192734";
 const DEFAULT_TEXT = "#ffffff";
@@ -42,6 +44,9 @@ const DEFAULT_BORDER = "#2f3336";
 export default function Home() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [profiles, setProfiles] = useState<Record<string, Profile>>({});
+  const [followingUserIds, setFollowingUserIds] = useState<string[]>([]);
+  const [activeTab, setActiveTab] = useState<HomeTab>("all");
+
   const [text, setText] = useState("");
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState("");
@@ -87,6 +92,28 @@ export default function Home() {
   const rootPosts = useMemo(() => {
     return posts.filter((post) => post.parent_id === null);
   }, [posts]);
+
+  const displayedPosts = useMemo(() => {
+    if (activeTab === "all") {
+      return rootPosts;
+    }
+
+    if (activeTab === "following") {
+      if (!userId) return [];
+      return rootPosts.filter(
+        (post) => !!post.user_id && followingUserIds.includes(post.user_id)
+      );
+    }
+
+    return [...rootPosts].sort((a, b) => {
+      if (b.likes !== a.likes) {
+        return b.likes - a.likes;
+      }
+      return (
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+    });
+  }, [activeTab, rootPosts, followingUserIds, userId]);
 
   const repliesByParent = useMemo(() => {
     const map: Record<number, Post[]> = {};
@@ -151,6 +178,30 @@ export default function Home() {
     }
   };
 
+  const fetchFollowingIds = async (currentUserId?: string | null) => {
+    if (!currentUserId) {
+      setFollowingUserIds([]);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("follows")
+      .select("following_user_id")
+      .eq("follower_user_id", currentUserId);
+
+    if (error) {
+      console.error(error);
+      setFollowingUserIds([]);
+      return;
+    }
+
+    const ids = (data ?? [])
+      .map((item) => item.following_user_id)
+      .filter((value): value is string => !!value);
+
+    setFollowingUserIds(ids);
+  };
+
   const fetchPostsAndProfiles = async (currentUserId?: string | null) => {
     setLoading(true);
     setErrorMessage("");
@@ -186,6 +237,7 @@ export default function Home() {
       if (userIds.length === 0) {
         setProfiles({});
         await fetchUnreadNotifications(currentUserId);
+        await fetchFollowingIds(currentUserId);
         return;
       }
 
@@ -210,10 +262,12 @@ export default function Home() {
       }
 
       await fetchUnreadNotifications(currentUserId);
+      await fetchFollowingIds(currentUserId);
     } catch (error) {
       console.error(error);
       setPosts([]);
       setProfiles({});
+      setFollowingUserIds([]);
       setErrorMessage("ホームの読み込みに失敗しました。再読み込みしてみて。");
     } finally {
       setLoading(false);
@@ -250,6 +304,12 @@ export default function Home() {
 
     init();
   }, []);
+
+  useEffect(() => {
+    if (activeTab === "following" && !userId) {
+      setActiveTab("all");
+    }
+  }, [activeTab, userId]);
 
   const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;
@@ -496,6 +556,8 @@ export default function Home() {
 
     setUserEmail(null);
     setUserId(null);
+    setFollowingUserIds([]);
+    setActiveTab("all");
     resetComposer();
     setProfiles({});
     setUnreadNotifications(0);
@@ -806,6 +868,18 @@ export default function Home() {
     );
   };
 
+  const tabButtonStyle = (tab: HomeTab) => ({
+    flex: 1,
+    background: activeTab === tab ? currentTheme.card : "transparent",
+    color: activeTab === tab ? currentTheme.text : currentTheme.muted,
+    border: `1px solid ${currentTheme.border}`,
+    padding: "12px 14px",
+    borderRadius: "14px",
+    cursor: "pointer",
+    fontSize: "14px",
+    fontWeight: "bold" as const,
+  });
+
   return (
     <main
       style={{
@@ -936,6 +1010,7 @@ export default function Home() {
               alignItems: "center",
               gap: "12px",
               flexWrap: "wrap",
+              marginBottom: "12px",
             }}
           >
             {userEmail ? (
@@ -998,6 +1073,34 @@ export default function Home() {
                 ログインはこちら
               </Link>
             )}
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              gap: "10px",
+            }}
+          >
+            <button
+              onClick={() => setActiveTab("all")}
+              style={tabButtonStyle("all")}
+            >
+              すべて
+            </button>
+
+            <button
+              onClick={() => setActiveTab("following")}
+              style={tabButtonStyle("following")}
+            >
+              フォロー中
+            </button>
+
+            <button
+              onClick={() => setActiveTab("popular")}
+              style={tabButtonStyle("popular")}
+            >
+              人気
+            </button>
           </div>
         </header>
 
@@ -1326,12 +1429,14 @@ export default function Home() {
             <p style={{ padding: "24px 20px", color: currentTheme.muted }}>
               読み込み中...
             </p>
-          ) : rootPosts.length === 0 ? (
+          ) : displayedPosts.length === 0 ? (
             <p style={{ padding: "24px 20px", color: currentTheme.muted }}>
-              まだ投稿がない
+              {activeTab === "following"
+                ? "フォロー中の投稿がまだない"
+                : "まだ投稿がない"}
             </p>
           ) : (
-            rootPosts.map((post) => renderPostCard(post))
+            displayedPosts.map((post) => renderPostCard(post))
           )}
         </section>
       </div>
