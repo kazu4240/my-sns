@@ -1842,144 +1842,136 @@ export default function Home() {
         {recommendedUsers.length > 0 && (
           <section
             style={{
-              padding: "18px 20px 20px",
               borderBottom: `1px solid ${currentTheme.border}`,
             }}
           >
             <div
               style={{
+                padding: "18px 20px 12px",
                 fontSize: uiScale.postText,
                 fontWeight: "bold",
-                marginBottom: "14px",
               }}
             >
               おすすめユーザー
             </div>
 
-            <div
-              style={{
-                display: "grid",
-                gap: "12px",
-              }}
-            >
-              {recommendedUsers.map((profile) => {
-                const shownName = profile.display_name || profile.username || "ユーザー";
-                const shownBio = profile.bio || "自己紹介はまだありません";
-                const shownUsername = profile.username || "user";
-                const isFollowingRecommended = followingUserIds.includes(profile.user_id);
-                const isLoadingFollow =
-                  recommendedFollowLoadingUserId === profile.user_id;
+            {recommendedUsers.map((profile) => {
+              const shownName = profile.display_name || profile.username || "ユーザー";
+              const shownBio = profile.bio || "自己紹介はまだありません";
+              const shownUsername = profile.username || "user";
+              const isFollowingRecommended = followingUserIds.includes(profile.user_id);
+              const isLoadingFollow =
+                recommendedFollowLoadingUserId === profile.user_id;
 
-                return (
-                  <Link
-                    key={profile.user_id}
-                    href={`/users/${profile.user_id}`}
-                    style={{
-                      borderBottom: `1px solid ${currentTheme.border}`,
-                      padding: "0 0 12px 0",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "12px",
-                      textDecoration: "none",
-                      color: currentTheme.text,
-                    }}
-                  >
-                    {profile.avatar_url ? (
-                      <img
-                        src={profile.avatar_url}
-                        alt="avatar"
-                        style={{
-                          width: uiScale.recommendedAvatar,
-                          height: uiScale.recommendedAvatar,
-                          borderRadius: "9999px",
-                          objectFit: "cover",
-                          flexShrink: 0,
-                        }}
-                      />
-                    ) : (
-                      <div
-                        style={{
-                          width: uiScale.recommendedAvatar,
-                          height: uiScale.recommendedAvatar,
-                          borderRadius: "9999px",
-                          background: currentTheme.accent,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          color: "#ffffff",
-                          fontWeight: "bold",
-                          flexShrink: 0,
-                          fontSize: uiScale.replyText,
-                        }}
-                      >
-                        {shownName.slice(0, 1).toUpperCase()}
-                      </div>
-                    )}
-
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      <div
-                        style={{
-                          fontWeight: "bold",
-                          fontSize: uiScale.replyText,
-                          marginBottom: "4px",
-                          wordBreak: "break-word",
-                        }}
-                      >
-                        {shownName}
-                      </div>
-
-                      <div
-                        style={{
-                          color: currentTheme.muted,
-                          fontSize: uiScale.metaText,
-                          marginBottom: "4px",
-                          wordBreak: "break-word",
-                        }}
-                      >
-                        @{shownUsername}
-                      </div>
-
-                      <div
-                        style={{
-                          color: currentTheme.muted,
-                          fontSize: uiScale.metaText,
-                          lineHeight: 1.5,
-                          wordBreak: "break-word",
-                        }}
-                      >
-                        {shownBio}
-                      </div>
-                    </div>
-
-                    <button
-                      onClick={(e) => handleRecommendedFollow(e, profile.user_id)}
-                      disabled={isLoadingFollow}
+              return (
+                <Link
+                  key={profile.user_id}
+                  href={`/users/${profile.user_id}`}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "12px",
+                    padding: "14px 20px",
+                    borderTop: `1px solid ${currentTheme.border}`,
+                    textDecoration: "none",
+                    color: currentTheme.text,
+                  }}
+                >
+                  {profile.avatar_url ? (
+                    <img
+                      src={profile.avatar_url}
+                      alt="avatar"
                       style={{
-                        background: isFollowingRecommended
-                          ? "transparent"
-                          : currentTheme.accent,
-                        color: "#ffffff",
-                        padding: "9px 14px",
+                        width: uiScale.recommendedAvatar,
+                        height: uiScale.recommendedAvatar,
                         borderRadius: "9999px",
-                        fontSize: uiScale.actionText,
+                        objectFit: "cover",
+                        flexShrink: 0,
+                      }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        width: uiScale.recommendedAvatar,
+                        height: uiScale.recommendedAvatar,
+                        borderRadius: "9999px",
+                        background: currentTheme.accent,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: "#ffffff",
                         fontWeight: "bold",
                         flexShrink: 0,
-                        border: isFollowingRecommended
-                          ? `1px solid ${currentTheme.border}`
-                          : "none",
-                        cursor: isLoadingFollow ? "not-allowed" : "pointer",
+                        fontSize: uiScale.replyText,
                       }}
                     >
-                      {isLoadingFollow
-                        ? "処理中..."
-                        : isFollowingRecommended
-                        ? "フォロー中"
-                        : "フォロー"}
-                    </button>
-                  </Link>
-                );
-              })}
-            </div>
+                      {shownName.slice(0, 1).toUpperCase()}
+                    </div>
+                  )}
+
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div
+                      style={{
+                        fontWeight: "bold",
+                        fontSize: uiScale.replyText,
+                        marginBottom: "4px",
+                        wordBreak: "break-word",
+                      }}
+                    >
+                      {shownName}
+                    </div>
+
+                    <div
+                      style={{
+                        color: currentTheme.muted,
+                        fontSize: uiScale.metaText,
+                        marginBottom: "4px",
+                        wordBreak: "break-word",
+                      }}
+                    >
+                      @{shownUsername}
+                    </div>
+
+                    <div
+                      style={{
+                        color: currentTheme.muted,
+                        fontSize: uiScale.metaText,
+                        lineHeight: 1.5,
+                        wordBreak: "break-word",
+                      }}
+                    >
+                      {shownBio}
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={(e) => handleRecommendedFollow(e, profile.user_id)}
+                    disabled={isLoadingFollow}
+                    style={{
+                      background: isFollowingRecommended
+                        ? "transparent"
+                        : currentTheme.accent,
+                      color: "#ffffff",
+                      padding: "9px 14px",
+                      borderRadius: "9999px",
+                      fontSize: uiScale.actionText,
+                      fontWeight: "bold",
+                      flexShrink: 0,
+                      border: isFollowingRecommended
+                        ? `1px solid ${currentTheme.border}`
+                        : "none",
+                      cursor: isLoadingFollow ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    {isLoadingFollow
+                      ? "処理中..."
+                      : isFollowingRecommended
+                      ? "フォロー中"
+                      : "フォロー"}
+                  </button>
+                </Link>
+              );
+            })}
           </section>
         )}
 
