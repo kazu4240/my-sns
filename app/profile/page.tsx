@@ -375,15 +375,18 @@ export default function ProfilePage() {
               disabled={saving}
               style={{
                 justifySelf: "end",
-                background: "transparent",
+                background: saving ? "#375a7f" : currentTheme.accent,
+                color: "#ffffff",
                 border: "none",
-                color: saving ? currentTheme.muted : currentTheme.accent,
+                padding: "10px 16px",
+                borderRadius: "9999px",
                 fontSize: `${sizes.button}px`,
                 fontWeight: 800,
                 cursor: saving ? "not-allowed" : "pointer",
+                boxShadow: saving ? "none" : "0 8px 20px rgba(29,155,240,0.25)",
               }}
             >
-              {saving ? "保存中" : "保存"}
+              {saving ? "保存中..." : "保存"}
             </button>
           </div>
         </header>
@@ -663,150 +666,21 @@ export default function ProfilePage() {
             borderBottom: `1px solid ${currentTheme.softBorder}`,
           }}
         >
-          <div
+          <button
+            onClick={handleResetTheme}
             style={{
-              display: "flex",
-              gap: "12px",
-              flexWrap: "wrap",
+              background: "transparent",
+              color: currentTheme.muted,
+              border: `1px solid ${currentTheme.softBorder}`,
+              padding: "11px 16px",
+              borderRadius: "9999px",
+              fontSize: `${sizes.button}px`,
+              fontWeight: "bold",
+              cursor: "pointer",
             }}
           >
-            <button
-              onClick={handleResetTheme}
-              style={{
-                background: "transparent",
-                color: currentTheme.muted,
-                border: `1px solid ${currentTheme.softBorder}`,
-                padding: "11px 16px",
-                borderRadius: "9999px",
-                fontSize: `${sizes.button}px`,
-                fontWeight: "bold",
-                cursor: "pointer",
-              }}
-            >
-              初期値に戻す
-            </button>
-
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              style={{
-                background: saving ? "#375a7f" : currentTheme.accent,
-                color: "#ffffff",
-                border: "none",
-                padding: "11px 18px",
-                borderRadius: "9999px",
-                fontSize: `${sizes.button}px`,
-                fontWeight: 800,
-                cursor: saving ? "not-allowed" : "pointer",
-                boxShadow: saving ? "none" : "0 8px 20px rgba(29,155,240,0.25)",
-              }}
-            >
-              {saving ? "保存中..." : "保存する"}
-            </button>
-          </div>
-        </section>
-
-        <section
-          style={{
-            padding: "20px",
-          }}
-        >
-          <div
-            style={{
-              fontWeight: 800,
-              fontSize: `${sizes.sectionTitle}px`,
-              marginBottom: "12px",
-            }}
-          >
-            プレビュー
-          </div>
-
-          <div
-            style={{
-              borderTop: `1px solid ${currentTheme.softBorder}`,
-              borderBottom: `1px solid ${currentTheme.softBorder}`,
-              background: currentTheme.background,
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                gap: "12px",
-                padding: "16px 0",
-              }}
-            >
-              <div
-                style={{
-                  width: "48px",
-                  height: "48px",
-                  borderRadius: "9999px",
-                  background: currentTheme.accent,
-                  color: "#ffffff",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontWeight: "bold",
-                  flexShrink: 0,
-                  overflow: "hidden",
-                }}
-              >
-                {avatarUrl ? (
-                  <img
-                    src={avatarUrl}
-                    alt="preview avatar"
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                    }}
-                  />
-                ) : (
-                  (displayName || "U").slice(0, 1).toUpperCase()
-                )}
-              </div>
-
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <div
-                  style={{
-                    display: "flex",
-                    flexWrap: "wrap",
-                    gap: "8px",
-                    alignItems: "center",
-                    marginBottom: "8px",
-                  }}
-                >
-                  <span style={{ fontWeight: 800 }}>{displayName || "表示名"}</span>
-                  <span style={{ color: currentTheme.muted }}>
-                    @{username || "username"}
-                  </span>
-                </div>
-
-                <div
-                  style={{
-                    color: currentTheme.text,
-                    lineHeight: 1.7,
-                    whiteSpace: "pre-wrap",
-                    marginBottom: "10px",
-                  }}
-                >
-                  {bio || "ここに自己紹介が表示されます"}
-                </div>
-
-                <div
-                  style={{
-                    display: "flex",
-                    gap: "20px",
-                    color: currentTheme.muted,
-                    fontSize: `${sizes.helper}px`,
-                  }}
-                >
-                  <span>💬 0</span>
-                  <span>♡ 0</span>
-                  <span>🔖</span>
-                </div>
-              </div>
-            </div>
-          </div>
+            初期値に戻す
+          </button>
         </section>
       </div>
     </main>
