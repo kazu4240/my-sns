@@ -257,7 +257,7 @@ export default function Home() {
         menuIcon: 18,
         actionHeight: 34,
         actionMinWidth: 42,
-        actionGap: 12,
+        actionGap: 18,
       };
     }
 
@@ -278,7 +278,7 @@ export default function Home() {
         menuIcon: 20,
         actionHeight: 40,
         actionMinWidth: 52,
-        actionGap: 14,
+        actionGap: 22,
       };
     }
 
@@ -298,7 +298,7 @@ export default function Home() {
       menuIcon: 19,
       actionHeight: 36,
       actionMinWidth: 46,
-      actionGap: 13,
+      actionGap: 20,
     };
   }, [profiles, userId]);
 
@@ -617,13 +617,13 @@ export default function Home() {
         upsert: true,
       });
 
-      if (uploadError) {
-        throw new Error(uploadError.message);
-      }
+    if (uploadError) {
+      throw new Error(uploadError.message);
+    }
 
-      const { data } = supabase.storage.from("post-images").getPublicUrl(filePath);
+    const { data } = supabase.storage.from("post-images").getPublicUrl(filePath);
 
-      return data.publicUrl;
+    return data.publicUrl;
   };
 
   const resetComposer = () => {
@@ -1033,7 +1033,7 @@ export default function Home() {
     alignItems: "center",
     justifyContent: "center",
     gap: "6px",
-    padding: "0 6px",
+    padding: "0 2px",
     cursor: "pointer",
     flexShrink: 0,
   } as const;
@@ -1051,10 +1051,9 @@ export default function Home() {
         key={post.id}
         style={{
           display: "flex",
-          gap: isReply ? "0" : "12px",
-          padding: isReply ? "12px 0 0 0" : "18px 20px",
+          gap: "12px",
+          padding: isReply ? "12px 0 0 0" : "14px 20px",
           borderBottom: isReply ? "none" : `1px solid ${currentTheme.border}`,
-          marginLeft: "0",
         }}
       >
         {!isReply &&
@@ -1069,8 +1068,6 @@ export default function Home() {
                   borderRadius: "9999px",
                   objectFit: "cover",
                   display: "block",
-                  border: `1px solid ${currentTheme.border}`,
-                  boxShadow: "0 4px 14px rgba(0,0,0,0.12)",
                 }}
               />
             </Link>
@@ -1089,7 +1086,6 @@ export default function Home() {
                 flexShrink: 0,
                 color: "#ffffff",
                 textDecoration: "none",
-                boxShadow: "0 4px 14px rgba(0,0,0,0.12)",
                 fontSize: uiScale.postText,
               }}
             >
@@ -1100,266 +1096,253 @@ export default function Home() {
         <div style={{ flex: 1, minWidth: 0 }}>
           <div
             style={{
-              background: currentTheme.card,
-              border: `1px solid ${currentTheme.border}`,
-              borderRadius: isReply ? "18px" : "20px",
-              padding: isReply ? "14px 16px" : "16px 18px",
-              boxShadow: "0 10px 30px rgba(0,0,0,0.10)",
+              display: "flex",
+              justifyContent: "space-between",
+              gap: "10px",
+              alignItems: "flex-start",
+              marginBottom: "6px",
             }}
           >
             <div
               style={{
                 display: "flex",
-                justifyContent: "space-between",
-                gap: "10px",
-                alignItems: "flex-start",
-                marginBottom: "10px",
+                gap: "8px",
+                alignItems: "center",
+                flexWrap: "wrap",
+                minWidth: 0,
               }}
             >
-              <div
+              <Link
+                href={profileHref}
                 style={{
-                  display: "flex",
-                  gap: "8px",
-                  alignItems: "center",
-                  flexWrap: "wrap",
-                  minWidth: 0,
+                  fontWeight: "bold",
+                  color: currentTheme.text,
+                  textDecoration: "none",
+                  fontSize: isReply ? uiScale.replyText : uiScale.postText - 1,
                 }}
               >
-                <Link
-                  href={profileHref}
+                {getDisplayName(post)}
+              </Link>
+
+              <span
+                style={{
+                  color: currentTheme.muted,
+                  fontSize: uiScale.metaText,
+                }}
+              >
+                @{getUsername(post)}
+              </span>
+
+              <span
+                style={{
+                  color: currentTheme.muted,
+                  fontSize: uiScale.metaText,
+                }}
+              >
+                ・ {formatDate(post.created_at)}
+              </span>
+
+              {isReply && (
+                <span
                   style={{
+                    color: currentTheme.accent,
+                    fontSize: uiScale.metaText,
                     fontWeight: "bold",
-                    color: currentTheme.text,
-                    textDecoration: "none",
-                    fontSize: isReply ? uiScale.replyText : uiScale.postText - 1,
                   }}
                 >
-                  {getDisplayName(post)}
-                </Link>
-
-                <span
-                  style={{
-                    color: currentTheme.muted,
-                    fontSize: uiScale.metaText,
-                  }}
-                >
-                  @{getUsername(post)}
+                  返信
                 </span>
-
-                <span
-                  style={{
-                    color: currentTheme.muted,
-                    fontSize: uiScale.metaText,
-                  }}
-                >
-                  ・ {formatDate(post.created_at)}
-                </span>
-
-                {isReply && (
-                  <span
-                    style={{
-                      color: currentTheme.accent,
-                      fontSize: uiScale.metaText,
-                      fontWeight: "bold",
-                      padding: "4px 8px",
-                      borderRadius: "9999px",
-                      background: "rgba(29,155,240,0.12)",
-                    }}
-                  >
-                    返信
-                  </span>
-                )}
-              </div>
-
-              {!isReply && (
-                <div style={{ position: "relative", flexShrink: 0 }}>
-                  <button
-                    onClick={(e: ReactMouseEvent<HTMLButtonElement>) => {
-                      e.stopPropagation();
-                      setOpenMenuPostId((prev) => (prev === post.id ? null : post.id));
-                    }}
-                    style={{
-                      background: "transparent",
-                      border: "none",
-                      padding: "6px",
-                      borderRadius: "9999px",
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <MoreIcon size={uiScale.menuIcon} color={currentTheme.muted} />
-                  </button>
-
-                  {isMenuOpen && (
-                    <div
-                      onClick={(e) => e.stopPropagation()}
-                      style={{
-                        position: "absolute",
-                        right: 0,
-                        top: "38px",
-                        minWidth: "140px",
-                        background: currentTheme.background,
-                        border: `1px solid ${currentTheme.border}`,
-                        borderRadius: "14px",
-                        overflow: "hidden",
-                        boxShadow: "0 18px 40px rgba(0,0,0,0.22)",
-                        zIndex: 50,
-                      }}
-                    >
-                      {isOwner ? (
-                        <>
-                          <button onClick={() => handleEdit(post)} style={menuItemStyle}>
-                            編集
-                          </button>
-                          <button
-                            onClick={() => handleDelete(post)}
-                            style={{
-                              ...menuItemStyle,
-                              color: "#ff6b6b",
-                            }}
-                          >
-                            削除
-                          </button>
-                        </>
-                      ) : (
-                        <Link
-                          href={`/report/post/${post.id}`}
-                          onClick={() => setOpenMenuPostId(null)}
-                          style={{
-                            display: "block",
-                            ...menuItemStyle,
-                            color: "#ff6b6b",
-                            textDecoration: "none",
-                          }}
-                        >
-                          通報
-                        </Link>
-                      )}
-                    </div>
-                  )}
-                </div>
               )}
             </div>
 
-            <p
-              style={{
-                fontSize: isReply ? uiScale.replyText : uiScale.postText,
-                lineHeight: 1.75,
-                whiteSpace: "pre-wrap",
-                margin: 0,
-                marginBottom: post.image_url ? "12px" : "14px",
-                color: currentTheme.text,
-                wordBreak: "break-word",
-              }}
-            >
-              {post.content}
-            </p>
-
-            {post.image_url && (
-              <div
-                style={{
-                  marginBottom: "14px",
-                  border: `1px solid ${currentTheme.border}`,
-                  borderRadius: "18px",
-                  overflow: "hidden",
-                  background: currentTheme.background,
-                }}
-              >
-                <img
-                  src={post.image_url}
-                  alt="post image"
-                  style={{
-                    width: "100%",
-                    maxHeight: "420px",
-                    objectFit: "cover",
-                    display: "block",
+            {!isReply && (
+              <div style={{ position: "relative", flexShrink: 0 }}>
+                <button
+                  onClick={(e: ReactMouseEvent<HTMLButtonElement>) => {
+                    e.stopPropagation();
+                    setOpenMenuPostId((prev) => (prev === post.id ? null : post.id));
                   }}
-                />
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    padding: "6px",
+                    borderRadius: "9999px",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <MoreIcon size={uiScale.menuIcon} color={currentTheme.muted} />
+                </button>
+
+                {isMenuOpen && (
+                  <div
+                    onClick={(e) => e.stopPropagation()}
+                    style={{
+                      position: "absolute",
+                      right: 0,
+                      top: "38px",
+                      minWidth: "140px",
+                      background: currentTheme.background,
+                      border: `1px solid ${currentTheme.border}`,
+                      borderRadius: "14px",
+                      overflow: "hidden",
+                      boxShadow: "0 18px 40px rgba(0,0,0,0.22)",
+                      zIndex: 50,
+                    }}
+                  >
+                    {isOwner ? (
+                      <>
+                        <button onClick={() => handleEdit(post)} style={menuItemStyle}>
+                          編集
+                        </button>
+                        <button
+                          onClick={() => handleDelete(post)}
+                          style={{
+                            ...menuItemStyle,
+                            color: "#ff6b6b",
+                          }}
+                        >
+                          削除
+                        </button>
+                      </>
+                    ) : (
+                      <Link
+                        href={`/report/post/${post.id}`}
+                        onClick={() => setOpenMenuPostId(null)}
+                        style={{
+                          display: "block",
+                          ...menuItemStyle,
+                          color: "#ff6b6b",
+                          textDecoration: "none",
+                        }}
+                      >
+                        通報
+                      </Link>
+                    )}
+                  </div>
+                )}
               </div>
             )}
+          </div>
 
+          <p
+            style={{
+              fontSize: isReply ? uiScale.replyText : uiScale.postText,
+              lineHeight: 1.75,
+              whiteSpace: "pre-wrap",
+              margin: 0,
+              marginBottom: post.image_url ? "12px" : "10px",
+              color: currentTheme.text,
+              wordBreak: "break-word",
+            }}
+          >
+            {post.content}
+          </p>
+
+          {post.image_url && (
             <div
               style={{
-                display: "flex",
-                alignItems: "center",
-                gap: `${uiScale.actionGap}px`,
-                flexWrap: "nowrap",
-                overflowX: "auto",
-                paddingTop: "2px",
+                marginBottom: "12px",
+                border: `1px solid ${currentTheme.border}`,
+                borderRadius: "16px",
+                overflow: "hidden",
+                background: currentTheme.background,
               }}
             >
-              <button
-                onClick={() => handleReply(post)}
+              <img
+                src={post.image_url}
+                alt="post image"
                 style={{
-                  ...actionButtonBase,
-                  color: currentTheme.muted,
+                  width: "100%",
+                  maxHeight: "420px",
+                  objectFit: "cover",
+                  display: "block",
                 }}
-              >
-                <ReplyIcon size={uiScale.icon} color={currentTheme.muted} />
-                <span
-                  style={{
-                    fontSize: uiScale.actionText,
-                    fontWeight: "bold",
-                    lineHeight: 1,
-                    display: "inline-flex",
-                    alignItems: "center",
-                    height: "100%",
-                  }}
-                >
-                  {replies.length}
-                </span>
-              </button>
-
-              <button
-                onClick={() => handleLike(post)}
-                style={{
-                  ...actionButtonBase,
-                  color: isLiked ? "#ff5a79" : currentTheme.muted,
-                }}
-              >
-                <HeartIcon
-                  size={uiScale.icon}
-                  color={isLiked ? "#ff5a79" : currentTheme.muted}
-                  filled={isLiked}
-                />
-                <span
-                  style={{
-                    fontSize: uiScale.actionText,
-                    fontWeight: "bold",
-                    lineHeight: 1,
-                    display: "inline-flex",
-                    alignItems: "center",
-                    height: "100%",
-                  }}
-                >
-                  {post.likes}
-                </span>
-              </button>
-
-              <button
-                onClick={() => handleToggleBookmark(post)}
-                style={{
-                  ...actionButtonBase,
-                  color: isBookmarked ? "#ffd166" : currentTheme.muted,
-                }}
-              >
-                <BookmarkIcon
-                  size={uiScale.icon}
-                  color={isBookmarked ? "#ffd166" : currentTheme.muted}
-                  filled={isBookmarked}
-                />
-              </button>
+              />
             </div>
+          )}
+
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: `${uiScale.actionGap}px`,
+              flexWrap: "nowrap",
+              overflowX: "auto",
+              paddingTop: "2px",
+            }}
+          >
+            <button
+              onClick={() => handleReply(post)}
+              style={{
+                ...actionButtonBase,
+                color: currentTheme.muted,
+              }}
+            >
+              <ReplyIcon size={uiScale.icon} color={currentTheme.muted} />
+              <span
+                style={{
+                  fontSize: uiScale.actionText,
+                  fontWeight: "bold",
+                  lineHeight: 1,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  height: "100%",
+                }}
+              >
+                {replies.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => handleLike(post)}
+              style={{
+                ...actionButtonBase,
+                color: isLiked ? "#ff5a79" : currentTheme.muted,
+              }}
+            >
+              <HeartIcon
+                size={uiScale.icon}
+                color={isLiked ? "#ff5a79" : currentTheme.muted}
+                filled={isLiked}
+              />
+              <span
+                style={{
+                  fontSize: uiScale.actionText,
+                  fontWeight: "bold",
+                  lineHeight: 1,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  height: "100%",
+                }}
+              >
+                {post.likes}
+              </span>
+            </button>
+
+            <button
+              onClick={() => handleToggleBookmark(post)}
+              style={{
+                ...actionButtonBase,
+                color: isBookmarked ? "#ffd166" : currentTheme.muted,
+              }}
+            >
+              <BookmarkIcon
+                size={uiScale.icon}
+                color={isBookmarked ? "#ffd166" : currentTheme.muted}
+                filled={isBookmarked}
+              />
+            </button>
           </div>
 
           {!isReply && replies.length > 0 && (
             <div
               style={{
                 marginTop: "10px",
-                marginLeft: "2px",
-                paddingLeft: "8px",
+                marginLeft: "6px",
+                paddingLeft: "12px",
                 borderLeft: `2px solid ${currentTheme.border}`,
               }}
             >
@@ -1373,11 +1356,14 @@ export default function Home() {
 
   const tabButtonStyle = (tab: HomeTab) => ({
     flex: 1,
-    background: activeTab === tab ? currentTheme.card : "transparent",
+    background: "transparent",
     color: activeTab === tab ? currentTheme.text : currentTheme.muted,
-    border: `1px solid ${currentTheme.border}`,
-    padding: "12px 14px",
-    borderRadius: "14px",
+    border: "none",
+    borderBottom:
+      activeTab === tab
+        ? `3px solid ${currentTheme.accent}`
+        : "3px solid transparent",
+    padding: "12px 14px 10px",
     cursor: "pointer",
     fontSize: uiScale.tabText,
     fontWeight: "bold" as const,
@@ -1401,7 +1387,6 @@ export default function Home() {
           borderRight: `1px solid ${currentTheme.border}`,
           minHeight: "100vh",
           background: currentTheme.background,
-          boxShadow: "0 0 0 1px rgba(0,0,0,0.02)",
         }}
       >
         <header
@@ -1411,17 +1396,16 @@ export default function Home() {
             background: `${currentTheme.background}ee`,
             backdropFilter: "blur(14px)",
             borderBottom: `1px solid ${currentTheme.border}`,
-            padding: "16px 20px 14px",
             zIndex: 20,
           }}
         >
           <div
             style={{
+              padding: "14px 20px 10px",
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
               gap: "16px",
-              marginBottom: "12px",
             }}
           >
             <div
@@ -1515,7 +1499,7 @@ export default function Home() {
 
           <div
             style={{
-              marginBottom: "12px",
+              padding: "0 20px 10px",
             }}
           >
             {userEmail ? (
@@ -1546,7 +1530,7 @@ export default function Home() {
           <div
             style={{
               display: "flex",
-              gap: "10px",
+              borderTop: `1px solid ${currentTheme.border}`,
             }}
           >
             <button onClick={() => setActiveTab("all")} style={tabButtonStyle("all")}>
@@ -1571,7 +1555,7 @@ export default function Home() {
 
         <section
           style={{
-            padding: "18px 20px 20px",
+            padding: "16px 20px",
             borderBottom: `1px solid ${currentTheme.border}`,
           }}
         >
@@ -1596,11 +1580,10 @@ export default function Home() {
             <div
               style={{
                 marginBottom: "14px",
-                padding: "14px 16px",
-                borderRadius: "18px",
+                padding: "12px 14px",
+                borderRadius: "14px",
                 border: `1px solid ${currentTheme.border}`,
-                background: currentTheme.card,
-                boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
+                background: "transparent",
               }}
             >
               <div
@@ -1609,7 +1592,6 @@ export default function Home() {
                   color: currentTheme.accent,
                   marginBottom: "8px",
                   fontWeight: "bold",
-                  letterSpacing: "0.02em",
                 }}
               >
                 返信先
@@ -1654,8 +1636,6 @@ export default function Home() {
                   borderRadius: "9999px",
                   objectFit: "cover",
                   flexShrink: 0,
-                  border: `1px solid ${currentTheme.border}`,
-                  boxShadow: "0 6px 18px rgba(0,0,0,0.14)",
                 }}
               />
             ) : (
@@ -1673,7 +1653,6 @@ export default function Home() {
                   flexShrink: 0,
                   color: "#ffffff",
                   textDecoration: "none",
-                  boxShadow: "0 6px 18px rgba(0,0,0,0.14)",
                   fontSize: uiScale.postText,
                 }}
               >
@@ -1681,17 +1660,7 @@ export default function Home() {
               </Link>
             )}
 
-            <div
-              style={{
-                flex: 1,
-                minWidth: 0,
-                background: currentTheme.card,
-                border: `1px solid ${currentTheme.border}`,
-                borderRadius: "22px",
-                padding: "16px",
-                boxShadow: "0 12px 32px rgba(0,0,0,0.10)",
-              }}
-            >
+            <div style={{ flex: 1, minWidth: 0 }}>
               <textarea
                 value={text}
                 onChange={(e) => setText(e.target.value)}
@@ -1716,6 +1685,7 @@ export default function Home() {
                   fontSize: uiScale.textarea,
                   lineHeight: 1.6,
                   opacity: userEmail ? 1 : 0.5,
+                  padding: 0,
                 }}
               />
 
@@ -1853,13 +1823,6 @@ export default function Home() {
                         submitting
                           ? "not-allowed"
                           : "pointer",
-                      boxShadow:
-                        !userEmail ||
-                        (!text.trim() && !selectedImage) ||
-                        remaining < 0 ||
-                        submitting
-                          ? "none"
-                          : "0 8px 20px rgba(29,155,240,0.28)",
                     }}
                   >
                     {submitting
@@ -1912,10 +1875,8 @@ export default function Home() {
                     key={profile.user_id}
                     href={`/users/${profile.user_id}`}
                     style={{
-                      background: currentTheme.card,
-                      border: `1px solid ${currentTheme.border}`,
-                      borderRadius: "18px",
-                      padding: "14px",
+                      borderBottom: `1px solid ${currentTheme.border}`,
+                      padding: "0 0 12px 0",
                       display: "flex",
                       alignItems: "center",
                       gap: "12px",
@@ -1933,7 +1894,6 @@ export default function Home() {
                           borderRadius: "9999px",
                           objectFit: "cover",
                           flexShrink: 0,
-                          border: `1px solid ${currentTheme.border}`,
                         }}
                       />
                     ) : (
@@ -1996,7 +1956,7 @@ export default function Home() {
                       disabled={isLoadingFollow}
                       style={{
                         background: isFollowingRecommended
-                          ? currentTheme.card
+                          ? "transparent"
                           : currentTheme.accent,
                         color: "#ffffff",
                         padding: "9px 14px",
