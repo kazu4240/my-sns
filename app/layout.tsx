@@ -19,7 +19,7 @@ export default function RootLayout({
           background: "#15202b",
         }}
       >
-        <div style={{ paddingBottom: "78px" }}>{children}</div>
+        <div style={{ paddingBottom: "94px" }}>{children}</div>
         <BottomNav />
       </body>
     </html>

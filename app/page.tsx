@@ -157,6 +157,31 @@ function MoreIcon({
   );
 }
 
+function SettingsIcon({ size, color }: { size: number; color: string }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+      style={{ display: "block" }}
+    >
+      <path
+        d="M12 8.8A3.2 3.2 0 1 0 12 15.2A3.2 3.2 0 1 0 12 8.8Z"
+        stroke={color}
+        strokeWidth="1.8"
+      />
+      <path
+        d="M19.4 13.5C19.47 13.01 19.5 12.51 19.5 12C19.5 11.49 19.47 10.99 19.4 10.5L21.2 9.1L19.4 5.9L17.2 6.5C16.45 5.86 15.58 5.36 14.62 5.05L14.3 2.8H10.7L10.38 5.05C9.42 5.36 8.55 5.86 7.8 6.5L5.6 5.9L3.8 9.1L5.6 10.5C5.53 10.99 5.5 11.49 5.5 12C5.5 12.51 5.53 13.01 5.6 13.5L3.8 14.9L5.6 18.1L7.8 17.5C8.55 18.14 9.42 18.64 10.38 18.95L10.7 21.2H14.3L14.62 18.95C15.58 18.64 16.45 18.14 17.2 17.5L19.4 18.1L21.2 14.9L19.4 13.5Z"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export default function Home() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [profiles, setProfiles] = useState<Record<string, Profile>>({});
@@ -168,6 +193,7 @@ export default function Home() {
     useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<HomeTab>("all");
   const [openMenuPostId, setOpenMenuPostId] = useState<number | null>(null);
+  const [openSettingsMenu, setOpenSettingsMenu] = useState(false);
 
   const [text, setText] = useState("");
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
@@ -578,6 +604,7 @@ export default function Home() {
   useEffect(() => {
     const handleWindowClick = () => {
       setOpenMenuPostId(null);
+      setOpenSettingsMenu(false);
     };
 
     window.addEventListener("click", handleWindowClick);
@@ -887,6 +914,7 @@ export default function Home() {
     setRecommendedUsers([]);
     setActiveTab("all");
     setOpenMenuPostId(null);
+    setOpenSettingsMenu(false);
     resetComposer();
     setProfiles({});
     setUnreadNotifications(0);
@@ -897,6 +925,7 @@ export default function Home() {
   const handleRefresh = async () => {
     const { currentId } = await checkUser();
     await fetchPostsAndProfiles(currentId);
+    setOpenSettingsMenu(false);
   };
 
   const handleRecommendedFollow = async (
@@ -1012,7 +1041,7 @@ export default function Home() {
     textAlign: "left" as const,
     background: "transparent",
     border: "none",
-    padding: "10px 12px",
+    padding: "11px 14px",
     color: currentTheme.text,
     fontSize: uiScale.actionText,
     fontWeight: "bold" as const,
@@ -1415,12 +1444,12 @@ export default function Home() {
             style={{
               display: "flex",
               justifyContent: "space-between",
-              alignItems: "flex-start",
+              alignItems: "center",
               gap: "16px",
               marginBottom: "12px",
             }}
           >
-            <div>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
               <div
                 style={{
                   fontSize: uiScale.headerTitle,
@@ -1430,6 +1459,86 @@ export default function Home() {
                 }}
               >
                 Ulein
+              </div>
+
+              <div style={{ position: "relative" }}>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setOpenSettingsMenu((prev) => !prev);
+                  }}
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    padding: "6px",
+                    borderRadius: "9999px",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <SettingsIcon size={22} color={currentTheme.accent} />
+                </button>
+
+                {openSettingsMenu && (
+                  <div
+                    onClick={(e) => e.stopPropagation()}
+                    style={{
+                      position: "absolute",
+                      left: 0,
+                      top: "40px",
+                      minWidth: "180px",
+                      background: currentTheme.background,
+                      border: `1px solid ${currentTheme.border}`,
+                      borderRadius: "14px",
+                      overflow: "hidden",
+                      boxShadow: "0 18px 40px rgba(0,0,0,0.22)",
+                      zIndex: 60,
+                    }}
+                  >
+                    <button
+                      onClick={handleRefresh}
+                      style={menuItemStyle}
+                    >
+                      再読み込み
+                    </button>
+
+                    <Link
+                      href="/bookmarks"
+                      onClick={() => setOpenSettingsMenu(false)}
+                      style={{
+                        display: "block",
+                        ...menuItemStyle,
+                        textDecoration: "none",
+                      }}
+                    >
+                      ブックマーク
+                    </Link>
+
+                    <Link
+                      href="/contact"
+                      onClick={() => setOpenSettingsMenu(false)}
+                      style={{
+                        display: "block",
+                        ...menuItemStyle,
+                        textDecoration: "none",
+                      }}
+                    >
+                      お問い合わせ
+                    </Link>
+
+                    <button
+                      onClick={handleLogout}
+                      style={{
+                        ...menuItemStyle,
+                        color: "#ff6b6b",
+                      }}
+                    >
+                      ログアウト
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1452,18 +1561,6 @@ export default function Home() {
                 }}
               >
                 検索
-              </Link>
-
-              <Link
-                href="/bookmarks"
-                style={{
-                  color: currentTheme.accent,
-                  textDecoration: "none",
-                  fontSize: uiScale.headerLink,
-                  fontWeight: "bold",
-                }}
-              >
-                ブックマーク
               </Link>
 
               <Link
@@ -1516,61 +1613,19 @@ export default function Home() {
 
           <div
             style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: "12px",
-              flexWrap: "wrap",
               marginBottom: "12px",
             }}
           >
             {userEmail ? (
-              <>
-                <span
-                  style={{
-                    fontSize: uiScale.metaText,
-                    color: currentTheme.muted,
-                    wordBreak: "break-all",
-                  }}
-                >
-                  ログイン中: {userEmail}
-                </span>
-
-                <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-                  <button
-                    onClick={handleRefresh}
-                    disabled={loading}
-                    style={{
-                      background: currentTheme.card,
-                      color: currentTheme.accent,
-                      border: `1px solid ${currentTheme.border}`,
-                      padding: "8px 12px",
-                      borderRadius: "9999px",
-                      cursor: loading ? "not-allowed" : "pointer",
-                      fontSize: uiScale.actionText,
-                      fontWeight: "bold",
-                    }}
-                  >
-                    再読み込み
-                  </button>
-
-                  <button
-                    onClick={handleLogout}
-                    style={{
-                      background: currentTheme.card,
-                      color: "#ff6b6b",
-                      border: `1px solid ${currentTheme.border}`,
-                      padding: "8px 12px",
-                      borderRadius: "9999px",
-                      cursor: "pointer",
-                      fontSize: uiScale.actionText,
-                      fontWeight: "bold",
-                    }}
-                  >
-                    ログアウト
-                  </button>
-                </div>
-              </>
+              <span
+                style={{
+                  fontSize: uiScale.metaText,
+                  color: currentTheme.muted,
+                  wordBreak: "break-all",
+                }}
+              >
+                ログイン中: {userEmail}
+              </span>
             ) : (
               <Link
                 href="/login"
@@ -2042,7 +2097,6 @@ export default function Home() {
                           ? currentTheme.card
                           : currentTheme.accent,
                         color: "#ffffff",
-                        textDecoration: "none",
                         padding: "9px 14px",
                         borderRadius: "9999px",
                         fontSize: uiScale.actionText,
