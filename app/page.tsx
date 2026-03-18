@@ -205,7 +205,6 @@ export default function Home() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
-  const [unreadNotifications, setUnreadNotifications] = useState(0);
 
   const maxLength = 140;
   const remaining = useMemo(() => maxLength - text.length, [text]);
@@ -348,27 +347,6 @@ export default function Home() {
 
     return map;
   }, [posts]);
-
-  const fetchUnreadNotifications = async (currentUserId?: string | null) => {
-    if (!currentUserId) {
-      setUnreadNotifications(0);
-      return;
-    }
-
-    const { count, error } = await supabase
-      .from("notifications")
-      .select("*", { count: "exact", head: true })
-      .eq("user_id", currentUserId)
-      .eq("is_read", false);
-
-    if (error) {
-      console.error(error);
-      setUnreadNotifications(0);
-      return;
-    }
-
-    setUnreadNotifications(count ?? 0);
-  };
 
   const createNotification = async ({
     user_id,
@@ -522,7 +500,6 @@ export default function Home() {
 
       if (userIds.length === 0) {
         setProfiles({});
-        await fetchUnreadNotifications(currentUserId);
         await fetchBookmarks(currentUserId);
         await fetchRecommendedUsers(currentUserId, followingIds);
         return;
@@ -548,7 +525,6 @@ export default function Home() {
         setProfiles(profileMap);
       }
 
-      await fetchUnreadNotifications(currentUserId);
       await fetchBookmarks(currentUserId);
       await fetchRecommendedUsers(currentUserId, followingIds);
     } catch (error) {
@@ -641,13 +617,13 @@ export default function Home() {
         upsert: true,
       });
 
-    if (uploadError) {
-      throw new Error(uploadError.message);
-    }
+      if (uploadError) {
+        throw new Error(uploadError.message);
+      }
 
-    const { data } = supabase.storage.from("post-images").getPublicUrl(filePath);
+      const { data } = supabase.storage.from("post-images").getPublicUrl(filePath);
 
-    return data.publicUrl;
+      return data.publicUrl;
   };
 
   const resetComposer = () => {
@@ -917,7 +893,6 @@ export default function Home() {
     setOpenSettingsMenu(false);
     resetComposer();
     setProfiles({});
-    setUnreadNotifications(0);
     await fetchPostsAndProfiles(null);
     alert("ログアウトしたよ");
   };
@@ -1449,165 +1424,92 @@ export default function Home() {
               marginBottom: "12px",
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <div
-                style={{
-                  fontSize: uiScale.headerTitle,
-                  fontWeight: 800,
-                  color: currentTheme.text,
-                  letterSpacing: "-0.02em",
-                }}
-              >
-                Ulein
-              </div>
-
-              <div style={{ position: "relative" }}>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setOpenSettingsMenu((prev) => !prev);
-                  }}
-                  style={{
-                    background: "transparent",
-                    border: "none",
-                    padding: "6px",
-                    borderRadius: "9999px",
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <SettingsIcon size={22} color={currentTheme.accent} />
-                </button>
-
-                {openSettingsMenu && (
-                  <div
-                    onClick={(e) => e.stopPropagation()}
-                    style={{
-                      position: "absolute",
-                      left: 0,
-                      top: "40px",
-                      minWidth: "180px",
-                      background: currentTheme.background,
-                      border: `1px solid ${currentTheme.border}`,
-                      borderRadius: "14px",
-                      overflow: "hidden",
-                      boxShadow: "0 18px 40px rgba(0,0,0,0.22)",
-                      zIndex: 60,
-                    }}
-                  >
-                    <button
-                      onClick={handleRefresh}
-                      style={menuItemStyle}
-                    >
-                      再読み込み
-                    </button>
-
-                    <Link
-                      href="/bookmarks"
-                      onClick={() => setOpenSettingsMenu(false)}
-                      style={{
-                        display: "block",
-                        ...menuItemStyle,
-                        textDecoration: "none",
-                      }}
-                    >
-                      ブックマーク
-                    </Link>
-
-                    <Link
-                      href="/contact"
-                      onClick={() => setOpenSettingsMenu(false)}
-                      style={{
-                        display: "block",
-                        ...menuItemStyle,
-                        textDecoration: "none",
-                      }}
-                    >
-                      お問い合わせ
-                    </Link>
-
-                    <button
-                      onClick={handleLogout}
-                      style={{
-                        ...menuItemStyle,
-                        color: "#ff6b6b",
-                      }}
-                    >
-                      ログアウト
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-
             <div
               style={{
-                display: "flex",
-                gap: "10px",
-                alignItems: "center",
-                flexWrap: "wrap",
-                justifyContent: "flex-end",
+                fontSize: uiScale.headerTitle,
+                fontWeight: 800,
+                color: currentTheme.text,
+                letterSpacing: "-0.02em",
               }}
             >
-              <Link
-                href="/search"
-                style={{
-                  color: currentTheme.accent,
-                  textDecoration: "none",
-                  fontSize: uiScale.headerLink,
-                  fontWeight: "bold",
-                }}
-              >
-                検索
-              </Link>
+              Ulein
+            </div>
 
-              <Link
-                href="/notifications"
+            <div style={{ position: "relative" }}>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setOpenSettingsMenu((prev) => !prev);
+                }}
                 style={{
-                  color: currentTheme.accent,
-                  textDecoration: "none",
-                  fontSize: uiScale.headerLink,
-                  fontWeight: "bold",
-                  position: "relative",
+                  background: "transparent",
+                  border: "none",
+                  padding: "6px",
+                  borderRadius: "9999px",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
                 }}
               >
-                通知
-                {unreadNotifications > 0 && (
-                  <span
+                <SettingsIcon size={22} color={currentTheme.accent} />
+              </button>
+
+              {openSettingsMenu && (
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    position: "absolute",
+                    right: 0,
+                    top: "40px",
+                    minWidth: "180px",
+                    background: currentTheme.background,
+                    border: `1px solid ${currentTheme.border}`,
+                    borderRadius: "14px",
+                    overflow: "hidden",
+                    boxShadow: "0 18px 40px rgba(0,0,0,0.22)",
+                    zIndex: 60,
+                  }}
+                >
+                  <button onClick={handleRefresh} style={menuItemStyle}>
+                    再読み込み
+                  </button>
+
+                  <Link
+                    href="/bookmarks"
+                    onClick={() => setOpenSettingsMenu(false)}
                     style={{
-                      marginLeft: "6px",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      minWidth: "20px",
-                      height: "20px",
-                      padding: "0 6px",
-                      borderRadius: "9999px",
-                      background: "#ff4d4f",
-                      color: "#ffffff",
-                      fontSize: "12px",
-                      fontWeight: "bold",
-                      boxShadow: "0 4px 12px rgba(255,77,79,0.3)",
+                      display: "block",
+                      ...menuItemStyle,
+                      textDecoration: "none",
                     }}
                   >
-                    {unreadNotifications}
-                  </span>
-                )}
-              </Link>
+                    ブックマーク
+                  </Link>
 
-              <Link
-                href="/profile"
-                style={{
-                  color: currentTheme.accent,
-                  textDecoration: "none",
-                  fontSize: uiScale.headerLink,
-                  fontWeight: "bold",
-                }}
-              >
-                プロフィール
-              </Link>
+                  <Link
+                    href="/contact"
+                    onClick={() => setOpenSettingsMenu(false)}
+                    style={{
+                      display: "block",
+                      ...menuItemStyle,
+                      textDecoration: "none",
+                    }}
+                  >
+                    お問い合わせ
+                  </Link>
+
+                  <button
+                    onClick={handleLogout}
+                    style={{
+                      ...menuItemStyle,
+                      color: "#ff6b6b",
+                    }}
+                  >
+                    ログアウト
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
