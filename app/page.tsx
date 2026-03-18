@@ -164,6 +164,8 @@ export default function Home() {
   const [bookmarkedPostIds, setBookmarkedPostIds] = useState<number[]>([]);
   const [likedPostIds, setLikedPostIds] = useState<number[]>([]);
   const [recommendedUsers, setRecommendedUsers] = useState<Profile[]>([]);
+  const [recommendedFollowLoadingUserId, setRecommendedFollowLoadingUserId] =
+    useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<HomeTab>("all");
   const [openMenuPostId, setOpenMenuPostId] = useState<number | null>(null);
 
@@ -895,6 +897,70 @@ export default function Home() {
   const handleRefresh = async () => {
     const { currentId } = await checkUser();
     await fetchPostsAndProfiles(currentId);
+  };
+
+  const handleRecommendedFollow = async (
+    e: ReactMouseEvent<HTMLButtonElement>,
+    targetUserId: string
+  ) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!userId) {
+      alert("フォローするにはログインしてね");
+      return;
+    }
+
+    if (userId === targetUserId) {
+      return;
+    }
+
+    setRecommendedFollowLoadingUserId(targetUserId);
+
+    try {
+      const isFollowing = followingUserIds.includes(targetUserId);
+
+      if (isFollowing) {
+        const { error } = await supabase
+          .from("follows")
+          .delete()
+          .eq("follower_user_id", userId)
+          .eq("following_user_id", targetUserId);
+
+        if (error) {
+          alert("フォロー解除失敗: " + error.message);
+          setRecommendedFollowLoadingUserId(null);
+          return;
+        }
+
+        setFollowingUserIds((prev) => prev.filter((id) => id !== targetUserId));
+      } else {
+        const { error } = await supabase.from("follows").insert({
+          follower_user_id: userId,
+          following_user_id: targetUserId,
+        });
+
+        if (error) {
+          alert("フォロー失敗: " + error.message);
+          setRecommendedFollowLoadingUserId(null);
+          return;
+        }
+
+        await createNotification({
+          user_id: targetUserId,
+          actor_user_id: userId,
+          type: "follow",
+          post_id: null,
+        });
+
+        setFollowingUserIds((prev) => [...prev, targetUserId]);
+      }
+    } catch (error) {
+      console.error(error);
+      alert("フォロー処理失敗");
+    } finally {
+      setRecommendedFollowLoadingUserId(null);
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -1880,10 +1946,14 @@ export default function Home() {
                 const shownName = profile.display_name || profile.username || "ユーザー";
                 const shownBio = profile.bio || "自己紹介はまだありません";
                 const shownUsername = profile.username || "user";
+                const isFollowingRecommended = followingUserIds.includes(profile.user_id);
+                const isLoadingFollow =
+                  recommendedFollowLoadingUserId === profile.user_id;
 
                 return (
-                  <div
+                  <Link
                     key={profile.user_id}
+                    href={`/users/${profile.user_id}`}
                     style={{
                       background: currentTheme.card,
                       border: `1px solid ${currentTheme.border}`,
@@ -1892,6 +1962,8 @@ export default function Home() {
                       display: "flex",
                       alignItems: "center",
                       gap: "12px",
+                      textDecoration: "none",
+                      color: currentTheme.text,
                     }}
                   >
                     {profile.avatar_url ? (
@@ -1962,10 +2034,13 @@ export default function Home() {
                       </div>
                     </div>
 
-                    <Link
-                      href={`/users/${profile.user_id}`}
+                    <button
+                      onClick={(e) => handleRecommendedFollow(e, profile.user_id)}
+                      disabled={isLoadingFollow}
                       style={{
-                        background: currentTheme.accent,
+                        background: isFollowingRecommended
+                          ? currentTheme.card
+                          : currentTheme.accent,
                         color: "#ffffff",
                         textDecoration: "none",
                         padding: "9px 14px",
@@ -1973,11 +2048,19 @@ export default function Home() {
                         fontSize: uiScale.actionText,
                         fontWeight: "bold",
                         flexShrink: 0,
+                        border: isFollowingRecommended
+                          ? `1px solid ${currentTheme.border}`
+                          : "none",
+                        cursor: isLoadingFollow ? "not-allowed" : "pointer",
                       }}
                     >
-                      見る
-                    </Link>
-                  </div>
+                      {isLoadingFollow
+                        ? "処理中..."
+                        : isFollowingRecommended
+                        ? "フォロー中"
+                        : "フォロー"}
+                    </button>
+                  </Link>
                 );
               })}
             </div>
