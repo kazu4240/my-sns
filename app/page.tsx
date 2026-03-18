@@ -162,6 +162,7 @@ export default function Home() {
   const [followingUserIds, setFollowingUserIds] = useState<string[]>([]);
   const [bookmarkedPostIds, setBookmarkedPostIds] = useState<number[]>([]);
   const [likedPostIds, setLikedPostIds] = useState<number[]>([]);
+  const [recommendedUsers, setRecommendedUsers] = useState<Profile[]>([]);
   const [activeTab, setActiveTab] = useState<HomeTab>("all");
   const [openMenuPostId, setOpenMenuPostId] = useState<number | null>(null);
 
@@ -216,6 +217,7 @@ export default function Home() {
         headerTitle: 22,
         avatar: 40,
         composerAvatar: 44,
+        recommendedAvatar: 42,
         postText: 15,
         replyText: 14,
         metaText: 12,
@@ -236,6 +238,7 @@ export default function Home() {
         headerTitle: 30,
         avatar: 56,
         composerAvatar: 60,
+        recommendedAvatar: 56,
         postText: 18,
         replyText: 16,
         metaText: 14,
@@ -255,6 +258,7 @@ export default function Home() {
       headerTitle: 26,
       avatar: 48,
       composerAvatar: 52,
+      recommendedAvatar: 48,
       postText: 17,
       replyText: 15,
       metaText: 13,
@@ -360,7 +364,7 @@ export default function Home() {
   const fetchFollowingIds = async (currentUserId?: string | null) => {
     if (!currentUserId) {
       setFollowingUserIds([]);
-      return;
+      return [];
     }
 
     const { data, error } = await supabase
@@ -371,7 +375,7 @@ export default function Home() {
     if (error) {
       console.error(error);
       setFollowingUserIds([]);
-      return;
+      return [];
     }
 
     const ids = (data ?? [])
@@ -379,6 +383,7 @@ export default function Home() {
       .filter((value): value is string => !!value);
 
     setFollowingUserIds(ids);
+    return ids;
   };
 
   const fetchBookmarks = async (currentUserId?: string | null) => {
@@ -405,11 +410,54 @@ export default function Home() {
     setBookmarkedPostIds(ids);
   };
 
+  const fetchRecommendedUsers = async (
+    currentUserId?: string | null,
+    excludedUserIds: string[] = []
+  ) => {
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select(
+          "user_id, display_name, bio, avatar_url, theme_background_color, theme_card_color, theme_text_color, theme_accent_color, ui_scale"
+        )
+        .limit(20);
+
+      if (error) {
+        console.error(error);
+        setRecommendedUsers([]);
+        return;
+      }
+
+      const excludedSet = new Set<string>(excludedUserIds);
+      if (currentUserId) {
+        excludedSet.add(currentUserId);
+      }
+
+      const filtered = ((data ?? []) as Profile[])
+        .filter((profile) => !excludedSet.has(profile.user_id))
+        .sort((a, b) => {
+          const aScore =
+            (a.avatar_url ? 1 : 0) + (a.display_name ? 1 : 0) + (a.bio ? 1 : 0);
+          const bScore =
+            (b.avatar_url ? 1 : 0) + (b.display_name ? 1 : 0) + (b.bio ? 1 : 0);
+          return bScore - aScore;
+        })
+        .slice(0, 5);
+
+      setRecommendedUsers(filtered);
+    } catch (error) {
+      console.error(error);
+      setRecommendedUsers([]);
+    }
+  };
+
   const fetchPostsAndProfiles = async (currentUserId?: string | null) => {
     setLoading(true);
     setErrorMessage("");
 
     try {
+      const followingIds = await fetchFollowingIds(currentUserId);
+
       const { data, error } = await supabase
         .from("posts")
         .select("*")
@@ -440,8 +488,8 @@ export default function Home() {
       if (userIds.length === 0) {
         setProfiles({});
         await fetchUnreadNotifications(currentUserId);
-        await fetchFollowingIds(currentUserId);
         await fetchBookmarks(currentUserId);
+        await fetchRecommendedUsers(currentUserId, followingIds);
         return;
       }
 
@@ -466,14 +514,15 @@ export default function Home() {
       }
 
       await fetchUnreadNotifications(currentUserId);
-      await fetchFollowingIds(currentUserId);
       await fetchBookmarks(currentUserId);
+      await fetchRecommendedUsers(currentUserId, followingIds);
     } catch (error) {
       console.error(error);
       setPosts([]);
       setProfiles({});
       setFollowingUserIds([]);
       setBookmarkedPostIds([]);
+      setRecommendedUsers([]);
       setErrorMessage("ホームの読み込みに失敗しました。再読み込みしてみて。");
     } finally {
       setLoading(false);
@@ -826,6 +875,7 @@ export default function Home() {
     setFollowingUserIds([]);
     setBookmarkedPostIds([]);
     setLikedPostIds([]);
+    setRecommendedUsers([]);
     setActiveTab("all");
     setOpenMenuPostId(null);
     resetComposer();
@@ -1789,6 +1839,125 @@ export default function Home() {
             </div>
           </div>
         </section>
+
+        {recommendedUsers.length > 0 && (
+          <section
+            style={{
+              padding: "18px 20px 20px",
+              borderBottom: `1px solid ${currentTheme.border}`,
+            }}
+          >
+            <div
+              style={{
+                fontSize: uiScale.postText,
+                fontWeight: "bold",
+                marginBottom: "14px",
+              }}
+            >
+              おすすめユーザー
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gap: "12px",
+              }}
+            >
+              {recommendedUsers.map((profile) => {
+                const shownName = profile.display_name || "ユーザー";
+                const shownBio = profile.bio || "自己紹介はまだありません";
+
+                return (
+                  <div
+                    key={profile.user_id}
+                    style={{
+                      background: currentTheme.card,
+                      border: `1px solid ${currentTheme.border}`,
+                      borderRadius: "18px",
+                      padding: "14px",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "12px",
+                    }}
+                  >
+                    {profile.avatar_url ? (
+                      <img
+                        src={profile.avatar_url}
+                        alt="avatar"
+                        style={{
+                          width: uiScale.recommendedAvatar,
+                          height: uiScale.recommendedAvatar,
+                          borderRadius: "9999px",
+                          objectFit: "cover",
+                          flexShrink: 0,
+                          border: `1px solid ${currentTheme.border}`,
+                        }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          width: uiScale.recommendedAvatar,
+                          height: uiScale.recommendedAvatar,
+                          borderRadius: "9999px",
+                          background: currentTheme.accent,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          color: "#ffffff",
+                          fontWeight: "bold",
+                          flexShrink: 0,
+                          fontSize: uiScale.replyText,
+                        }}
+                      >
+                        {shownName.slice(0, 1).toUpperCase()}
+                      </div>
+                    )}
+
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div
+                        style={{
+                          fontWeight: "bold",
+                          fontSize: uiScale.replyText,
+                          marginBottom: "4px",
+                          wordBreak: "break-word",
+                        }}
+                      >
+                        {shownName}
+                      </div>
+
+                      <div
+                        style={{
+                          color: currentTheme.muted,
+                          fontSize: uiScale.metaText,
+                          lineHeight: 1.5,
+                          wordBreak: "break-word",
+                        }}
+                      >
+                        {shownBio}
+                      </div>
+                    </div>
+
+                    <Link
+                      href={`/users/${profile.user_id}`}
+                      style={{
+                        background: currentTheme.accent,
+                        color: "#ffffff",
+                        textDecoration: "none",
+                        padding: "9px 14px",
+                        borderRadius: "9999px",
+                        fontSize: uiScale.actionText,
+                        fontWeight: "bold",
+                        flexShrink: 0,
+                      }}
+                    >
+                      見る
+                    </Link>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
 
         <section>
           {errorMessage && (
