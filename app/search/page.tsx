@@ -1,31 +1,24 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
-
-type Profile = {
-  user_id: string;
-  display_name: string | null;
-  bio: string | null;
-  avatar_url: string | null;
-  theme_background_color: string | null;
-  theme_card_color: string | null;
-  theme_text_color: string | null;
-  theme_accent_color: string | null;
-};
-
-type PostUser = {
-  user_id: string | null;
-  user_email: string | null;
-};
 
 type SearchUser = {
   user_id: string;
   display_name: string | null;
+  username: string | null;
   bio: string | null;
   avatar_url: string | null;
-  user_email: string | null;
+};
+
+type MyThemeProfile = {
+  user_id: string;
+  theme_background_color: string | null;
+  theme_card_color: string | null;
+  theme_text_color: string | null;
+  theme_accent_color: string | null;
+  ui_scale: string | null;
 };
 
 const DEFAULT_BACKGROUND = "#15202b";
@@ -41,61 +34,75 @@ export default function SearchPage() {
   const [searched, setSearched] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
-  const [themeBackgroundColor, setThemeBackgroundColor] = useState(DEFAULT_BACKGROUND);
-  const [themeCardColor, setThemeCardColor] = useState(DEFAULT_CARD);
-  const [themeTextColor, setThemeTextColor] = useState(DEFAULT_TEXT);
-  const [themeAccentColor, setThemeAccentColor] = useState(DEFAULT_ACCENT);
+  const [theme, setTheme] = useState({
+    background: DEFAULT_BACKGROUND,
+    card: DEFAULT_CARD,
+    text: DEFAULT_TEXT,
+    accent: DEFAULT_ACCENT,
+    border: DEFAULT_BORDER,
+    muted: "#8899a6",
+  });
 
-  const theme = useMemo(() => {
-    const textColor = themeTextColor || DEFAULT_TEXT;
+  const [uiScale, setUiScale] = useState("normal");
 
-    return {
-      background: themeBackgroundColor || DEFAULT_BACKGROUND,
-      card: themeCardColor || DEFAULT_CARD,
-      text: textColor,
-      accent: themeAccentColor || DEFAULT_ACCENT,
-      border: DEFAULT_BORDER,
-      muted: textColor === "#000000" ? "#555555" : "#8899a6",
-      softText: textColor === "#000000" ? "#444444" : "#cfd9de",
+  useEffect(() => {
+    const loadMyTheme = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) return;
+
+      const { data } = await supabase
+        .from("profiles")
+        .select(
+          "user_id, theme_background_color, theme_card_color, theme_text_color, theme_accent_color, ui_scale"
+        )
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      const profile = (data as MyThemeProfile | null) ?? null;
+      const textColor = profile?.theme_text_color || DEFAULT_TEXT;
+
+      setTheme({
+        background: profile?.theme_background_color || DEFAULT_BACKGROUND,
+        card: profile?.theme_card_color || DEFAULT_CARD,
+        text: textColor,
+        accent: profile?.theme_accent_color || DEFAULT_ACCENT,
+        border: DEFAULT_BORDER,
+        muted: textColor === "#000000" ? "#555555" : "#8899a6",
+      });
+
+      setUiScale(profile?.ui_scale || "normal");
     };
-  }, [themeBackgroundColor, themeCardColor, themeTextColor, themeAccentColor]);
 
-  const loadTheme = async () => {
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    loadMyTheme();
+  }, []);
 
-    if (authError || !user) {
-      setThemeBackgroundColor(DEFAULT_BACKGROUND);
-      setThemeCardColor(DEFAULT_CARD);
-      setThemeTextColor(DEFAULT_TEXT);
-      setThemeAccentColor(DEFAULT_ACCENT);
-      return;
-    }
-
-    const { data, error } = await supabase
-      .from("profiles")
-      .select(
-        "theme_background_color, theme_card_color, theme_text_color, theme_accent_color"
-      )
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    if (error) {
-      console.error(error);
-      setThemeBackgroundColor(DEFAULT_BACKGROUND);
-      setThemeCardColor(DEFAULT_CARD);
-      setThemeTextColor(DEFAULT_TEXT);
-      setThemeAccentColor(DEFAULT_ACCENT);
-      return;
-    }
-
-    setThemeBackgroundColor(data?.theme_background_color ?? DEFAULT_BACKGROUND);
-    setThemeCardColor(data?.theme_card_color ?? DEFAULT_CARD);
-    setThemeTextColor(data?.theme_text_color ?? DEFAULT_TEXT);
-    setThemeAccentColor(data?.theme_accent_color ?? DEFAULT_ACCENT);
-  };
+  const sizes =
+    uiScale === "compact"
+      ? {
+          name: 15,
+          username: 12,
+          bio: 13,
+          avatar: 48,
+          input: 15,
+        }
+      : uiScale === "large"
+      ? {
+          name: 17,
+          username: 14,
+          bio: 15,
+          avatar: 58,
+          input: 17,
+        }
+      : {
+          name: 16,
+          username: 13,
+          bio: 14,
+          avatar: 52,
+          input: 16,
+        };
 
   async function searchUsers(word: string) {
     const trimmed = word.trim();
@@ -112,63 +119,20 @@ export default function SearchPage() {
     setErrorMessage("");
 
     try {
-      const [profileResult, postResult] = await Promise.all([
-        supabase
-          .from("profiles")
-          .select("user_id, display_name, bio, avatar_url")
-          .or(`display_name.ilike.%${trimmed}%,bio.ilike.%${trimmed}%`)
-          .order("display_name", { ascending: true })
-          .limit(30),
-        supabase
-          .from("posts")
-          .select("user_id, user_email")
-          .ilike("user_email", `%${trimmed}%`)
-          .limit(50),
-      ]);
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("user_id, display_name, username, bio, avatar_url")
+        .or(
+          `display_name.ilike.%${trimmed}%,username.ilike.%${trimmed}%,bio.ilike.%${trimmed}%`
+        )
+        .order("display_name", { ascending: true })
+        .limit(30);
 
-      if (profileResult.error) {
-        throw new Error(profileResult.error.message);
+      if (error) {
+        throw new Error(error.message);
       }
 
-      if (postResult.error) {
-        throw new Error(postResult.error.message);
-      }
-
-      const mergedMap: Record<string, SearchUser> = {};
-
-      for (const profile of (profileResult.data ?? []) as Profile[]) {
-        mergedMap[profile.user_id] = {
-          user_id: profile.user_id,
-          display_name: profile.display_name,
-          bio: profile.bio,
-          avatar_url: profile.avatar_url,
-          user_email: null,
-        };
-      }
-
-      for (const postUser of (postResult.data ?? []) as PostUser[]) {
-        if (!postUser.user_id) continue;
-
-        if (mergedMap[postUser.user_id]) {
-          mergedMap[postUser.user_id].user_email = postUser.user_email ?? null;
-        } else {
-          mergedMap[postUser.user_id] = {
-            user_id: postUser.user_id,
-            display_name: null,
-            bio: null,
-            avatar_url: null,
-            user_email: postUser.user_email ?? null,
-          };
-        }
-      }
-
-      const mergedResults = Object.values(mergedMap).sort((a, b) => {
-        const aName = (a.display_name || "").toLowerCase();
-        const bName = (b.display_name || "").toLowerCase();
-        return aName.localeCompare(bName, "ja");
-      });
-
-      setResults(mergedResults);
+      setResults((data ?? []) as SearchUser[]);
     } catch (error) {
       console.error("検索エラー:", error);
       setResults([]);
@@ -177,10 +141,6 @@ export default function SearchPage() {
       setLoading(false);
     }
   }
-
-  useEffect(() => {
-    loadTheme();
-  }, []);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -196,19 +156,17 @@ export default function SearchPage() {
         minHeight: "100vh",
         background: theme.background,
         color: theme.text,
-        fontFamily:
-          'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+        fontFamily: "sans-serif",
       }}
     >
       <div
         style={{
-          maxWidth: "720px",
+          maxWidth: "680px",
           margin: "0 auto",
           borderLeft: `1px solid ${theme.border}`,
           borderRight: `1px solid ${theme.border}`,
           minHeight: "100vh",
           background: theme.background,
-          boxShadow: "0 0 0 1px rgba(0,0,0,0.02)",
         }}
       >
         <header
@@ -216,10 +174,10 @@ export default function SearchPage() {
             position: "sticky",
             top: 0,
             background: `${theme.background}ee`,
-            backdropFilter: "blur(14px)",
+            backdropFilter: "blur(8px)",
             borderBottom: `1px solid ${theme.border}`,
-            padding: "16px 20px 14px",
-            zIndex: 20,
+            padding: "18px 20px",
+            zIndex: 10,
           }}
         >
           <Link
@@ -229,244 +187,152 @@ export default function SearchPage() {
               textDecoration: "none",
               fontSize: "14px",
               display: "inline-block",
-              marginBottom: "10px",
-              fontWeight: "bold",
+              marginBottom: "8px",
             }}
           >
             ← ホームに戻る
           </Link>
 
-          <div
+          <h1
             style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "flex-start",
-              gap: "16px",
-              flexWrap: "wrap",
+              margin: 0,
+              fontSize: "24px",
+              fontWeight: "bold",
             }}
           >
-            <div>
-              <div
-                style={{
-                  fontSize: "26px",
-                  fontWeight: 800,
-                  letterSpacing: "-0.02em",
-                  marginBottom: "6px",
-                  color: theme.text,
-                }}
-              >
-                Ulein
-              </div>
-
-              <div
-                style={{
-                  color: theme.muted,
-                  fontSize: "14px",
-                }}
-              >
-                ユーザー検索
-              </div>
-            </div>
-          </div>
+            ユーザー検索
+          </h1>
         </header>
 
         <section
           style={{
-            padding: "18px 20px 20px",
+            padding: "20px",
             borderBottom: `1px solid ${theme.border}`,
           }}
         >
-          <div
+          <input
+            type="text"
+            placeholder="表示名・@username・自己紹介で検索"
+            value={keyword}
+            onChange={(e) => setKeyword(e.target.value)}
             style={{
-              background: theme.card,
+              width: "100%",
+              padding: "14px",
+              fontSize: sizes.input,
               border: `1px solid ${theme.border}`,
-              borderRadius: "22px",
-              padding: "16px",
-              boxShadow: "0 12px 32px rgba(0,0,0,0.10)",
+              borderRadius: "12px",
+              outline: "none",
+              background: theme.card,
+              color: theme.text,
+              boxSizing: "border-box",
             }}
-          >
-            <input
-              type="text"
-              placeholder="表示名・自己紹介・メール名で検索"
-              value={keyword}
-              onChange={(e) => setKeyword(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "14px 16px",
-                fontSize: "16px",
-                border: `1px solid ${theme.border}`,
-                borderRadius: "16px",
-                outline: "none",
-                background: theme.background,
-                color: theme.text,
-                boxSizing: "border-box",
-              }}
-            />
-
-            <div
-              style={{
-                marginTop: "10px",
-                color: theme.muted,
-                fontSize: "13px",
-              }}
-            >
-              名前、自己紹介、メール名の一部で検索できます
-            </div>
-          </div>
+          />
         </section>
 
-        <section style={{ padding: "18px 20px 24px" }}>
-          {loading && (
-            <div
-              style={{
-                border: `1px solid ${theme.border}`,
-                borderRadius: "20px",
-                padding: "18px",
-                color: theme.muted,
-                background: theme.card,
-              }}
-            >
-              検索中...
-            </div>
-          )}
+        {loading && (
+          <p style={{ padding: "20px", color: theme.muted }}>検索中...</p>
+        )}
 
-          {!loading && errorMessage && (
-            <div
-              style={{
-                padding: "14px 16px",
-                color: "#ffb4b4",
-                border: "1px solid rgba(255,107,107,0.25)",
-                background: "rgba(255,107,107,0.08)",
-                borderRadius: "18px",
-              }}
-            >
-              {errorMessage}
-            </div>
-          )}
+        {!loading && errorMessage && (
+          <p style={{ padding: "20px", color: "#ffb4b4" }}>{errorMessage}</p>
+        )}
 
-          {!loading && searched && !errorMessage && results.length === 0 && (
-            <div
-              style={{
-                border: `1px solid ${theme.border}`,
-                borderRadius: "20px",
-                padding: "22px",
-                color: theme.muted,
-                background: theme.card,
-                textAlign: "center",
-                boxShadow: "0 10px 28px rgba(0,0,0,0.08)",
-              }}
-            >
-              該当するユーザーが見つかりませんでした。
-            </div>
-          )}
+        {!loading && searched && !errorMessage && results.length === 0 && (
+          <p style={{ padding: "20px", color: theme.muted }}>
+            該当するユーザーが見つかりませんでした。
+          </p>
+        )}
 
-          {!loading && results.length > 0 && (
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "14px",
-              }}
-            >
-              {results.map((profile) => {
-                const shownName = profile.display_name || "名前未設定";
-                const shownBio = profile.bio || "自己紹介はまだありません";
-                const shownId = profile.user_email
-                  ? `@${profile.user_email.split("@")[0]}`
-                  : "@user";
+        <section style={{ display: "grid", gap: "0" }}>
+          {results.map((profile) => {
+            const shownName = profile.display_name || profile.username || "名前未設定";
+            const shownBio = profile.bio || "自己紹介はまだありません";
+            const shownUsername = profile.username || "user";
 
-                return (
-                  <Link
-                    key={profile.user_id}
-                    href={`/users/${profile.user_id}`}
+            return (
+              <Link
+                key={profile.user_id}
+                href={`/users/${profile.user_id}`}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "12px",
+                  padding: "18px 20px",
+                  borderBottom: `1px solid ${theme.border}`,
+                  textDecoration: "none",
+                  color: theme.text,
+                  background: theme.background,
+                }}
+              >
+                {profile.avatar_url ? (
+                  <img
+                    src={profile.avatar_url}
+                    alt="avatar"
                     style={{
+                      width: sizes.avatar,
+                      height: sizes.avatar,
+                      borderRadius: "50%",
+                      objectFit: "cover",
+                      border: `1px solid ${theme.border}`,
+                      flexShrink: 0,
+                    }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      width: sizes.avatar,
+                      height: sizes.avatar,
+                      borderRadius: "50%",
+                      background: theme.accent,
                       display: "flex",
                       alignItems: "center",
-                      gap: "14px",
-                      padding: "18px",
-                      border: `1px solid ${theme.border}`,
-                      borderRadius: "22px",
-                      textDecoration: "none",
-                      color: theme.text,
-                      background: theme.card,
-                      boxShadow: "0 10px 28px rgba(0,0,0,0.08)",
+                      justifyContent: "center",
+                      fontSize: "20px",
+                      fontWeight: "bold",
+                      flexShrink: 0,
+                      color: "#ffffff",
                     }}
                   >
-                    {profile.avatar_url ? (
-                      <img
-                        src={profile.avatar_url}
-                        alt="avatar"
-                        style={{
-                          width: "56px",
-                          height: "56px",
-                          borderRadius: "50%",
-                          objectFit: "cover",
-                          border: `1px solid ${theme.border}`,
-                          flexShrink: 0,
-                          boxShadow: "0 6px 18px rgba(0,0,0,0.14)",
-                        }}
-                      />
-                    ) : (
-                      <div
-                        style={{
-                          width: "56px",
-                          height: "56px",
-                          borderRadius: "50%",
-                          background: theme.accent,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: "20px",
-                          fontWeight: "bold",
-                          flexShrink: 0,
-                          color: "#ffffff",
-                          boxShadow: "0 6px 18px rgba(0,0,0,0.14)",
-                        }}
-                      >
-                        {shownName.slice(0, 1).toUpperCase()}
-                      </div>
-                    )}
+                    {shownName.slice(0, 1).toUpperCase()}
+                  </div>
+                )}
 
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      <div
-                        style={{
-                          fontWeight: "bold",
-                          fontSize: "17px",
-                          marginBottom: "4px",
-                          wordBreak: "break-all",
-                          color: theme.text,
-                        }}
-                      >
-                        {shownName}
-                      </div>
+                <div style={{ minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontWeight: "bold",
+                      fontSize: sizes.name,
+                      marginBottom: "4px",
+                      wordBreak: "break-all",
+                    }}
+                  >
+                    {shownName}
+                  </div>
 
-                      <div
-                        style={{
-                          color: theme.muted,
-                          fontSize: "13px",
-                          marginBottom: "6px",
-                          wordBreak: "break-all",
-                        }}
-                      >
-                        {shownId}
-                      </div>
+                  <div
+                    style={{
+                      color: theme.muted,
+                      fontSize: sizes.username,
+                      marginBottom: "4px",
+                      wordBreak: "break-all",
+                    }}
+                  >
+                    @{shownUsername}
+                  </div>
 
-                      <div
-                        style={{
-                          color: theme.softText,
-                          fontSize: "14px",
-                          lineHeight: 1.6,
-                          wordBreak: "break-word",
-                        }}
-                      >
-                        {shownBio}
-                      </div>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          )}
+                  <div
+                    style={{
+                      color: theme.muted,
+                      fontSize: sizes.bio,
+                      wordBreak: "break-all",
+                    }}
+                  >
+                    {shownBio}
+                  </div>
+                </div>
+              </Link>
+            );
+          })}
         </section>
       </div>
     </main>

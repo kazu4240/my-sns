@@ -18,19 +18,15 @@ type Post = {
 type Profile = {
   user_id: string;
   display_name: string | null;
+  username: string | null;
   bio: string | null;
   avatar_url: string | null;
-  theme_background_color?: string | null;
-  theme_card_color?: string | null;
-  theme_text_color?: string | null;
-  theme_accent_color?: string | null;
+  theme_background_color: string | null;
+  theme_card_color: string | null;
+  theme_text_color: string | null;
+  theme_accent_color: string | null;
+  ui_scale: string | null;
 };
-
-const DEFAULT_BACKGROUND = "#15202b";
-const DEFAULT_CARD = "#192734";
-const DEFAULT_TEXT = "#ffffff";
-const DEFAULT_ACCENT = "#1d9bf0";
-const DEFAULT_BORDER = "#2f3336";
 
 export default function UserProfilePage({
   params,
@@ -43,63 +39,59 @@ export default function UserProfilePage({
   const [followLoading, setFollowLoading] = useState(false);
   const [posts, setPosts] = useState<Post[]>([]);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [viewerTheme, setViewerTheme] = useState<Profile | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isFollowing, setIsFollowing] = useState(false);
   const [followersCount, setFollowersCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
   const [errorMessage, setErrorMessage] = useState("");
 
-  const [themeBackgroundColor, setThemeBackgroundColor] = useState(DEFAULT_BACKGROUND);
-  const [themeCardColor, setThemeCardColor] = useState(DEFAULT_CARD);
-  const [themeTextColor, setThemeTextColor] = useState(DEFAULT_TEXT);
-  const [themeAccentColor, setThemeAccentColor] = useState(DEFAULT_ACCENT);
-
-  const theme = useMemo(() => {
-    const textColor = themeTextColor || DEFAULT_TEXT;
+  const currentTheme = useMemo(() => {
+    const textColor = viewerTheme?.theme_text_color || "#ffffff";
 
     return {
-      background: themeBackgroundColor || DEFAULT_BACKGROUND,
-      card: themeCardColor || DEFAULT_CARD,
+      background: viewerTheme?.theme_background_color || "#15202b",
+      card: viewerTheme?.theme_card_color || "#192734",
       text: textColor,
-      accent: themeAccentColor || DEFAULT_ACCENT,
-      border: DEFAULT_BORDER,
+      accent: viewerTheme?.theme_accent_color || "#1d9bf0",
+      border: "#2f3336",
       muted: textColor === "#000000" ? "#555555" : "#8899a6",
       softText: textColor === "#000000" ? "#444444" : "#cfd9de",
     };
-  }, [themeBackgroundColor, themeCardColor, themeTextColor, themeAccentColor]);
+  }, [viewerTheme]);
 
-  const loadMyTheme = async (signedInUserId: string | null) => {
-    if (!signedInUserId) {
-      setThemeBackgroundColor(DEFAULT_BACKGROUND);
-      setThemeCardColor(DEFAULT_CARD);
-      setThemeTextColor(DEFAULT_TEXT);
-      setThemeAccentColor(DEFAULT_ACCENT);
-      return;
-    }
+  const uiScale = viewerTheme?.ui_scale || "normal";
 
-    const { data, error } = await supabase
-      .from("profiles")
-      .select(
-        "theme_background_color, theme_card_color, theme_text_color, theme_accent_color"
-      )
-      .eq("user_id", signedInUserId)
-      .maybeSingle();
-
-    if (error) {
-      console.error(error);
-      setThemeBackgroundColor(DEFAULT_BACKGROUND);
-      setThemeCardColor(DEFAULT_CARD);
-      setThemeTextColor(DEFAULT_TEXT);
-      setThemeAccentColor(DEFAULT_ACCENT);
-      return;
-    }
-
-    setThemeBackgroundColor(data?.theme_background_color ?? DEFAULT_BACKGROUND);
-    setThemeCardColor(data?.theme_card_color ?? DEFAULT_CARD);
-    setThemeTextColor(data?.theme_text_color ?? DEFAULT_TEXT);
-    setThemeAccentColor(data?.theme_accent_color ?? DEFAULT_ACCENT);
-  };
+  const sizes =
+    uiScale === "compact"
+      ? {
+          avatar: 76,
+          name: 24,
+          username: 14,
+          bio: 14,
+          postText: 15,
+          meta: 12,
+          button: 13,
+        }
+      : uiScale === "large"
+      ? {
+          avatar: 100,
+          name: 30,
+          username: 17,
+          bio: 17,
+          postText: 18,
+          meta: 14,
+          button: 15,
+        }
+      : {
+          avatar: 88,
+          name: 28,
+          username: 16,
+          bio: 16,
+          postText: 17,
+          meta: 13,
+          button: 14,
+        };
 
   const loadUserPage = async () => {
     setLoading(true);
@@ -118,18 +110,19 @@ export default function UserProfilePage({
       const signedInUserId = user?.id ?? null;
       setCurrentUserId(signedInUserId);
 
-      await loadMyTheme(signedInUserId);
-
       const [
         profileResult,
         postsResult,
         followersResult,
         followingResult,
         myFollowResult,
+        myThemeResult,
       ] = await Promise.all([
         supabase
           .from("profiles")
-          .select("user_id, display_name, bio, avatar_url")
+          .select(
+            "user_id, display_name, username, bio, avatar_url, theme_background_color, theme_card_color, theme_text_color, theme_accent_color, ui_scale"
+          )
           .eq("user_id", userId)
           .maybeSingle(),
         supabase
@@ -155,6 +148,15 @@ export default function UserProfilePage({
               .eq("following_user_id", userId)
               .maybeSingle()
           : Promise.resolve({ data: null, error: null }),
+        signedInUserId
+          ? supabase
+              .from("profiles")
+              .select(
+                "user_id, display_name, username, bio, avatar_url, theme_background_color, theme_card_color, theme_text_color, theme_accent_color, ui_scale"
+              )
+              .eq("user_id", signedInUserId)
+              .maybeSingle()
+          : Promise.resolve({ data: null, error: null }),
       ]);
 
       if (profileResult.error) {
@@ -165,38 +167,17 @@ export default function UserProfilePage({
         throw new Error(postsResult.error.message);
       }
 
-      if ("error" in followersResult && followersResult.error) {
-        console.error(followersResult.error);
-      }
-
-      if ("error" in followingResult && followingResult.error) {
-        console.error(followingResult.error);
-      }
-
-      if ("error" in myFollowResult && myFollowResult.error) {
-        console.error(myFollowResult.error);
-      }
-
       setProfile((profileResult.data as Profile | null) ?? null);
-
-      const postsData = (postsResult.data ?? []) as Post[];
-      setPosts(postsData);
-
-      if (postsData.length > 0) {
-        setUserEmail(postsData[0].user_email ?? null);
-      } else {
-        setUserEmail(null);
-      }
-
+      setPosts((postsResult.data ?? []) as Post[]);
       setFollowersCount(followersResult.count ?? 0);
       setFollowingCount(followingResult.count ?? 0);
       setIsFollowing(!!myFollowResult.data);
+      setViewerTheme((myThemeResult.data as Profile | null) ?? null);
     } catch (error) {
       console.error(error);
       setErrorMessage("プロフィールの読み込みに失敗しました。");
       setPosts([]);
       setProfile(null);
-      setUserEmail(null);
       setFollowersCount(0);
       setFollowingCount(0);
       setIsFollowing(false);
@@ -288,9 +269,8 @@ export default function UserProfilePage({
     });
   };
 
-  const shownName =
-    profile?.display_name || userEmail?.split("@")[0] || "ユーザー";
-  const shownId = userEmail?.split("@")[0] || "user";
+  const shownName = profile?.display_name || profile?.username || "ユーザー";
+  const shownUsername = profile?.username || "user";
   const shownBio = profile?.bio || "自己紹介はまだありません。";
   const shownAvatarUrl = profile?.avatar_url || null;
   const isMyPage = !!currentUserId && currentUserId === userId;
@@ -299,91 +279,62 @@ export default function UserProfilePage({
     <main
       style={{
         minHeight: "100vh",
-        background: theme.background,
-        color: theme.text,
-        fontFamily:
-          'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+        background: currentTheme.background,
+        color: currentTheme.text,
+        fontFamily: "sans-serif",
       }}
     >
       <div
         style={{
-          maxWidth: "720px",
+          maxWidth: "680px",
           margin: "0 auto",
-          borderLeft: `1px solid ${theme.border}`,
-          borderRight: `1px solid ${theme.border}`,
+          borderLeft: `1px solid ${currentTheme.border}`,
+          borderRight: `1px solid ${currentTheme.border}`,
           minHeight: "100vh",
-          background: theme.background,
-          boxShadow: "0 0 0 1px rgba(0,0,0,0.02)",
+          background: currentTheme.background,
         }}
       >
         <header
           style={{
             position: "sticky",
             top: 0,
-            background: `${theme.background}ee`,
-            backdropFilter: "blur(14px)",
-            borderBottom: `1px solid ${theme.border}`,
-            padding: "16px 20px 14px",
-            zIndex: 20,
+            background: `${currentTheme.background}ee`,
+            backdropFilter: "blur(8px)",
+            borderBottom: `1px solid ${currentTheme.border}`,
+            padding: "18px 20px",
+            zIndex: 10,
           }}
         >
           <Link
             href="/"
             style={{
-              color: theme.accent,
+              color: currentTheme.accent,
               textDecoration: "none",
               fontSize: "14px",
               display: "inline-block",
-              marginBottom: "10px",
-              fontWeight: "bold",
+              marginBottom: "8px",
             }}
           >
             ← ホームに戻る
           </Link>
 
-          <div
+          <h1
             style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "flex-start",
-              gap: "16px",
-              flexWrap: "wrap",
+              margin: 0,
+              fontSize: "24px",
+              fontWeight: "bold",
             }}
           >
-            <div>
-              <div
-                style={{
-                  fontSize: "26px",
-                  fontWeight: 800,
-                  letterSpacing: "-0.02em",
-                  marginBottom: "6px",
-                  color: theme.text,
-                }}
-              >
-                Ulein
-              </div>
-
-              <div
-                style={{
-                  color: theme.muted,
-                  fontSize: "14px",
-                }}
-              >
-                ユーザープロフィール
-              </div>
-            </div>
-          </div>
+            ユーザープロフィール
+          </h1>
         </header>
 
         {errorMessage && (
           <div
             style={{
-              margin: "18px 20px 0",
-              padding: "14px 16px",
+              padding: "20px",
               color: "#ffb4b4",
-              border: "1px solid rgba(255,107,107,0.25)",
-              background: "rgba(255,107,107,0.08)",
-              borderRadius: "18px",
+              borderBottom: `1px solid ${currentTheme.border}`,
             }}
           >
             {errorMessage}
@@ -392,213 +343,155 @@ export default function UserProfilePage({
 
         <section
           style={{
-            padding: "22px 20px 20px",
-            borderBottom: `1px solid ${theme.border}`,
+            padding: "24px 20px",
+            borderBottom: `1px solid ${currentTheme.border}`,
           }}
         >
-          <div
+          {shownAvatarUrl ? (
+            <img
+              src={shownAvatarUrl}
+              alt="avatar"
+              style={{
+                width: sizes.avatar,
+                height: sizes.avatar,
+                borderRadius: "9999px",
+                objectFit: "cover",
+                marginBottom: "16px",
+                border: `2px solid ${currentTheme.border}`,
+              }}
+            />
+          ) : (
+            <div
+              style={{
+                width: sizes.avatar,
+                height: sizes.avatar,
+                borderRadius: "9999px",
+                background: currentTheme.accent,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "32px",
+                fontWeight: "bold",
+                marginBottom: "16px",
+                color: "#ffffff",
+              }}
+            >
+              {shownName.charAt(0).toUpperCase()}
+            </div>
+          )}
+
+          <h2
             style={{
-              background: theme.card,
-              border: `1px solid ${theme.border}`,
-              borderRadius: "24px",
-              padding: "20px",
-              boxShadow: "0 12px 32px rgba(0,0,0,0.10)",
+              margin: 0,
+              fontSize: sizes.name,
+              fontWeight: "bold",
+              wordBreak: "break-all",
             }}
           >
-            <div
-              style={{
-                display: "flex",
-                gap: "18px",
-                alignItems: "center",
-                flexWrap: "wrap",
-              }}
-            >
-              {shownAvatarUrl ? (
-                <img
-                  src={shownAvatarUrl}
-                  alt="avatar"
-                  style={{
-                    width: "92px",
-                    height: "92px",
-                    borderRadius: "9999px",
-                    objectFit: "cover",
-                    border: `2px solid ${theme.border}`,
-                    boxShadow: "0 8px 20px rgba(0,0,0,0.14)",
-                  }}
-                />
-              ) : (
-                <div
-                  style={{
-                    width: "92px",
-                    height: "92px",
-                    borderRadius: "9999px",
-                    background: theme.accent,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: "34px",
-                    fontWeight: "bold",
-                    color: "#ffffff",
-                    boxShadow: "0 8px 20px rgba(0,0,0,0.14)",
-                  }}
-                >
-                  {shownName.charAt(0).toUpperCase()}
-                </div>
-              )}
+            {shownName}
+          </h2>
 
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <h1
-                  style={{
-                    margin: 0,
-                    fontSize: "30px",
-                    fontWeight: 800,
-                    letterSpacing: "-0.02em",
-                    wordBreak: "break-all",
-                    color: theme.text,
-                  }}
-                >
-                  {shownName}
-                </h1>
+          <p
+            style={{
+              marginTop: "6px",
+              marginBottom: "14px",
+              color: currentTheme.muted,
+              fontSize: sizes.username,
+            }}
+          >
+            @{shownUsername}
+          </p>
 
-                <div
-                  style={{
-                    marginTop: "6px",
-                    marginBottom: "14px",
-                    color: theme.muted,
-                    fontSize: "15px",
-                    wordBreak: "break-all",
-                  }}
-                >
-                  @{shownId}
-                </div>
+          <p
+            style={{
+              margin: 0,
+              marginBottom: "16px",
+              fontSize: sizes.bio,
+              lineHeight: 1.7,
+              whiteSpace: "pre-wrap",
+            }}
+          >
+            {shownBio}
+          </p>
 
-                <p
-                  style={{
-                    margin: 0,
-                    fontSize: "15px",
-                    lineHeight: 1.7,
-                    whiteSpace: "pre-wrap",
-                    color: theme.softText,
-                    wordBreak: "break-word",
-                  }}
-                >
-                  {shownBio}
-                </p>
-              </div>
-            </div>
-
-            <div
-              style={{
-                display: "flex",
-                gap: "12px",
-                flexWrap: "wrap",
-                marginTop: "18px",
-                alignItems: "center",
-              }}
-            >
-              <Link
-                href={`/users/${userId}/followers`}
-                style={{
-                  color: theme.softText,
-                  textDecoration: "none",
-                  border: `1px solid ${theme.border}`,
-                  background: theme.background,
-                  padding: "10px 14px",
-                  borderRadius: "9999px",
-                  fontSize: "14px",
-                  fontWeight: "bold",
-                }}
-              >
-                <strong>{followersCount}</strong> フォロワー
-              </Link>
-
-              <Link
-                href={`/users/${userId}/following`}
-                style={{
-                  color: theme.softText,
-                  textDecoration: "none",
-                  border: `1px solid ${theme.border}`,
-                  background: theme.background,
-                  padding: "10px 14px",
-                  borderRadius: "9999px",
-                  fontSize: "14px",
-                  fontWeight: "bold",
-                }}
-              >
-                <strong>{followingCount}</strong> フォロー中
-              </Link>
-
-              {!isMyPage && (
-                <button
-                  onClick={handleFollowToggle}
-                  disabled={followLoading}
-                  style={{
-                    background: isFollowing ? "#22303c" : theme.accent,
-                    color: "#ffffff",
-                    border: isFollowing ? `1px solid ${theme.border}` : "none",
-                    padding: "11px 18px",
-                    borderRadius: "9999px",
-                    fontSize: "14px",
-                    fontWeight: 800,
-                    cursor: followLoading ? "not-allowed" : "pointer",
-                    boxShadow: isFollowing
-                      ? "none"
-                      : "0 8px 20px rgba(29,155,240,0.28)",
-                  }}
-                >
-                  {followLoading
-                    ? "処理中..."
-                    : isFollowing
-                    ? "フォロー中"
-                    : "フォロー"}
-                </button>
-              )}
-            </div>
-          </div>
-        </section>
-
-        <section style={{ padding: "20px" }}>
           <div
             style={{
               display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: "12px",
-              marginBottom: "16px",
+              gap: "18px",
               flexWrap: "wrap",
+              marginBottom: "16px",
+              color: currentTheme.softText,
+              fontSize: sizes.meta,
             }}
           >
-            <h2
+            <Link
+              href={`/users/${userId}/followers`}
               style={{
-                margin: 0,
-                fontSize: "22px",
-                fontWeight: 800,
-                letterSpacing: "-0.02em",
-                color: theme.text,
+                color: currentTheme.softText,
+                textDecoration: "none",
               }}
             >
-              この人の投稿
-            </h2>
+              <strong>{followersCount}</strong> フォロワー
+            </Link>
 
-            <div
+            <Link
+              href={`/users/${userId}/following`}
               style={{
-                color: theme.muted,
-                fontSize: "13px",
-                fontWeight: "bold",
+                color: currentTheme.softText,
+                textDecoration: "none",
               }}
             >
-              最新20件
-            </div>
+              <strong>{followingCount}</strong> フォロー中
+            </Link>
           </div>
+
+          {!isMyPage && (
+            <button
+              onClick={handleFollowToggle}
+              disabled={followLoading}
+              style={{
+                background: isFollowing ? currentTheme.card : currentTheme.accent,
+                color: "#ffffff",
+                border: isFollowing ? `1px solid ${currentTheme.border}` : "none",
+                padding: "10px 18px",
+                borderRadius: "9999px",
+                fontSize: sizes.button,
+                fontWeight: "bold",
+                cursor: followLoading ? "not-allowed" : "pointer",
+              }}
+            >
+              {followLoading
+                ? "処理中..."
+                : isFollowing
+                ? "フォロー中"
+                : "フォロー"}
+            </button>
+          )}
+        </section>
+
+        <section
+          style={{
+            padding: "20px",
+          }}
+        >
+          <h3
+            style={{
+              marginTop: 0,
+              marginBottom: "16px",
+              fontSize: "20px",
+            }}
+          >
+            この人の投稿
+          </h3>
 
           {loading ? (
             <div
               style={{
-                border: `1px solid ${theme.border}`,
-                borderRadius: "18px",
+                border: `1px solid ${currentTheme.border}`,
+                borderRadius: "16px",
                 padding: "18px",
-                color: theme.muted,
-                background: theme.card,
+                color: currentTheme.muted,
+                background: currentTheme.card,
               }}
             >
               読み込み中...
@@ -606,11 +499,11 @@ export default function UserProfilePage({
           ) : posts.length === 0 ? (
             <div
               style={{
-                border: `1px solid ${theme.border}`,
-                borderRadius: "18px",
+                border: `1px solid ${currentTheme.border}`,
+                borderRadius: "16px",
                 padding: "18px",
-                color: theme.muted,
-                background: theme.card,
+                color: currentTheme.muted,
+                background: currentTheme.card,
               }}
             >
               まだ投稿がない
@@ -627,11 +520,10 @@ export default function UserProfilePage({
                 <article
                   key={post.id}
                   style={{
-                    border: `1px solid ${theme.border}`,
-                    borderRadius: "20px",
+                    border: `1px solid ${currentTheme.border}`,
+                    borderRadius: "16px",
                     padding: "18px",
-                    background: theme.card,
-                    boxShadow: "0 10px 28px rgba(0,0,0,0.08)",
+                    background: currentTheme.card,
                   }}
                 >
                   <div
@@ -643,11 +535,16 @@ export default function UserProfilePage({
                       flexWrap: "wrap",
                     }}
                   >
-                    <span style={{ fontWeight: "bold", color: theme.text }}>
-                      {shownName}
+                    <span style={{ fontWeight: "bold" }}>{shownName}</span>
+                    <span style={{ color: currentTheme.muted }}>
+                      @{shownUsername}
                     </span>
-                    <span style={{ color: theme.muted }}>@{shownId}</span>
-                    <span style={{ color: theme.muted, fontSize: "13px" }}>
+                    <span
+                      style={{
+                        color: currentTheme.muted,
+                        fontSize: sizes.meta,
+                      }}
+                    >
                       ・ {formatDate(post.created_at)}
                     </span>
                   </div>
@@ -656,11 +553,9 @@ export default function UserProfilePage({
                     style={{
                       margin: 0,
                       marginBottom: post.image_url ? "12px" : "0",
-                      fontSize: "17px",
-                      lineHeight: 1.75,
+                      fontSize: sizes.postText,
+                      lineHeight: 1.6,
                       whiteSpace: "pre-wrap",
-                      wordBreak: "break-word",
-                      color: theme.text,
                     }}
                   >
                     {post.content}
@@ -670,10 +565,9 @@ export default function UserProfilePage({
                     <div
                       style={{
                         marginTop: "12px",
-                        border: `1px solid ${theme.border}`,
-                        borderRadius: "18px",
+                        border: `1px solid ${currentTheme.border}`,
+                        borderRadius: "16px",
                         overflow: "hidden",
-                        background: theme.background,
                       }}
                     >
                       <img
@@ -692,39 +586,11 @@ export default function UserProfilePage({
                   <div
                     style={{
                       marginTop: "12px",
-                      display: "flex",
-                      gap: "10px",
-                      flexWrap: "wrap",
-                      alignItems: "center",
+                      color: currentTheme.muted,
+                      fontSize: sizes.meta,
                     }}
                   >
-                    <span
-                      style={{
-                        color: theme.muted,
-                        fontSize: "14px",
-                        fontWeight: "bold",
-                      }}
-                    >
-                      ❤️ いいね {post.likes}
-                    </span>
-
-                    {!isMyPage && (
-                      <Link
-                        href={`/report/post/${post.id}`}
-                        style={{
-                          background: "transparent",
-                          color: "#ff6b6b",
-                          border: `1px solid ${theme.border}`,
-                          padding: "8px 14px",
-                          borderRadius: "9999px",
-                          textDecoration: "none",
-                          fontSize: "13px",
-                          fontWeight: "bold",
-                        }}
-                      >
-                        🚨 通報
-                      </Link>
-                    )}
+                    ❤️ {post.likes}
                   </div>
                 </article>
               ))}

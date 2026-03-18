@@ -4,11 +4,6 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 
-type BookmarkRow = {
-  post_id: number;
-  created_at: string;
-};
-
 type Post = {
   id: number;
   content: string;
@@ -20,15 +15,21 @@ type Post = {
   parent_id: number | null;
 };
 
+type BookmarkRow = {
+  post_id: number;
+};
+
 type Profile = {
   user_id: string;
   display_name: string | null;
+  username: string | null;
   bio: string | null;
   avatar_url: string | null;
-  theme_background_color?: string | null;
-  theme_card_color?: string | null;
-  theme_text_color?: string | null;
-  theme_accent_color?: string | null;
+  theme_background_color: string | null;
+  theme_card_color: string | null;
+  theme_text_color: string | null;
+  theme_accent_color: string | null;
+  ui_scale: string | null;
 };
 
 const DEFAULT_BACKGROUND = "#15202b";
@@ -39,32 +40,61 @@ const DEFAULT_BORDER = "#2f3336";
 
 export default function BookmarksPage() {
   const [loading, setLoading] = useState(true);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
   const [profiles, setProfiles] = useState<Record<string, Profile>>({});
-  const [bookmarkedPostIds, setBookmarkedPostIds] = useState<number[]>([]);
   const [errorMessage, setErrorMessage] = useState("");
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
-  const [themeBackgroundColor, setThemeBackgroundColor] = useState(DEFAULT_BACKGROUND);
-  const [themeCardColor, setThemeCardColor] = useState(DEFAULT_CARD);
-  const [themeTextColor, setThemeTextColor] = useState(DEFAULT_TEXT);
-  const [themeAccentColor, setThemeAccentColor] = useState(DEFAULT_ACCENT);
+  const currentTheme = useMemo(() => {
+    if (!currentUserId || !profiles[currentUserId]) {
+      return {
+        background: DEFAULT_BACKGROUND,
+        card: DEFAULT_CARD,
+        text: DEFAULT_TEXT,
+        accent: DEFAULT_ACCENT,
+        border: DEFAULT_BORDER,
+        muted: "#8899a6",
+      };
+    }
 
-  const theme = useMemo(() => {
-    const textColor = themeTextColor || DEFAULT_TEXT;
+    const me = profiles[currentUserId];
+    const textColor = me.theme_text_color || DEFAULT_TEXT;
 
     return {
-      background: themeBackgroundColor || DEFAULT_BACKGROUND,
-      card: themeCardColor || DEFAULT_CARD,
+      background: me.theme_background_color || DEFAULT_BACKGROUND,
+      card: me.theme_card_color || DEFAULT_CARD,
       text: textColor,
-      accent: themeAccentColor || DEFAULT_ACCENT,
+      accent: me.theme_accent_color || DEFAULT_ACCENT,
       border: DEFAULT_BORDER,
       muted: textColor === "#000000" ? "#555555" : "#8899a6",
-      softText: textColor === "#000000" ? "#444444" : "#cfd9de",
     };
-  }, [themeBackgroundColor, themeCardColor, themeTextColor, themeAccentColor]);
+  }, [profiles, currentUserId]);
 
-  const loadPage = async () => {
+  const uiScale =
+    currentUserId && profiles[currentUserId]?.ui_scale
+      ? profiles[currentUserId].ui_scale
+      : "normal";
+
+  const sizes =
+    uiScale === "compact"
+      ? {
+          avatar: 40,
+          postText: 15,
+          meta: 12,
+        }
+      : uiScale === "large"
+      ? {
+          avatar: 56,
+          postText: 18,
+          meta: 14,
+        }
+      : {
+          avatar: 48,
+          postText: 17,
+          meta: 13,
+        };
+
+  const loadBookmarks = async () => {
     setLoading(true);
     setErrorMessage("");
 
@@ -78,47 +108,47 @@ export default function BookmarksPage() {
         throw new Error(authError.message);
       }
 
-      const signedInUserId = user?.id ?? null;
-      setCurrentUserId(signedInUserId);
-
-      if (!signedInUserId) {
+      if (!user) {
+        setCurrentUserId(null);
         setPosts([]);
         setProfiles({});
-        setBookmarkedPostIds([]);
         setLoading(false);
         return;
       }
 
-      const { data: myProfile } = await supabase
-        .from("profiles")
-        .select(
-          "theme_background_color, theme_card_color, theme_text_color, theme_accent_color"
-        )
-        .eq("user_id", signedInUserId)
-        .maybeSingle();
-
-      setThemeBackgroundColor(myProfile?.theme_background_color ?? DEFAULT_BACKGROUND);
-      setThemeCardColor(myProfile?.theme_card_color ?? DEFAULT_CARD);
-      setThemeTextColor(myProfile?.theme_text_color ?? DEFAULT_TEXT);
-      setThemeAccentColor(myProfile?.theme_accent_color ?? DEFAULT_ACCENT);
+      setCurrentUserId(user.id);
 
       const { data: bookmarkData, error: bookmarkError } = await supabase
         .from("bookmarks")
-        .select("post_id, created_at")
-        .eq("user_id", signedInUserId)
-        .order("created_at", { ascending: false });
+        .select("post_id")
+        .eq("user_id", user.id);
 
       if (bookmarkError) {
         throw new Error(bookmarkError.message);
       }
 
-      const bookmarkRows = (bookmarkData ?? []) as BookmarkRow[];
-      const postIds = bookmarkRows.map((item) => item.post_id);
-      setBookmarkedPostIds(postIds);
+      const postIds = ((bookmarkData ?? []) as BookmarkRow[]).map(
+        (item) => item.post_id
+      );
 
       if (postIds.length === 0) {
+        const { data: myProfile } = await supabase
+          .from("profiles")
+          .select(
+            "user_id, display_name, username, bio, avatar_url, theme_background_color, theme_card_color, theme_text_color, theme_accent_color, ui_scale"
+          )
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (myProfile) {
+          setProfiles({
+            [user.id]: myProfile as Profile,
+          });
+        } else {
+          setProfiles({});
+        }
+
         setPosts([]);
-        setProfiles({});
         setLoading(false);
         return;
       }
@@ -126,63 +156,51 @@ export default function BookmarksPage() {
       const { data: postData, error: postError } = await supabase
         .from("posts")
         .select("*")
-        .in("id", postIds);
+        .in("id", postIds)
+        .order("created_at", { ascending: false });
 
       if (postError) {
         throw new Error(postError.message);
       }
 
-      const postMap = new Map<number, Post>();
-      for (const post of (postData ?? []) as Post[]) {
-        postMap.set(post.id, post);
-      }
-
-      const orderedPosts = postIds
-        .map((id) => postMap.get(id))
-        .filter((value): value is Post => !!value);
-
-      setPosts(orderedPosts);
+      const postsData = (postData ?? []) as Post[];
+      setPosts(postsData);
 
       const userIds = Array.from(
         new Set(
-          orderedPosts
-            .map((post) => post.user_id)
-            .filter((value): value is string => !!value)
+          [user.id, ...postsData.map((post) => post.user_id).filter(Boolean)] as string[]
         )
       );
 
-      if (userIds.length > 0) {
-        const { data: profileData, error: profileError } = await supabase
-          .from("profiles")
-          .select("user_id, display_name, bio, avatar_url")
-          .in("user_id", userIds);
+      const { data: profileData, error: profileError } = await supabase
+        .from("profiles")
+        .select(
+          "user_id, display_name, username, bio, avatar_url, theme_background_color, theme_card_color, theme_text_color, theme_accent_color, ui_scale"
+        )
+        .in("user_id", userIds);
 
-        if (profileError) {
-          console.error(profileError);
-          setProfiles({});
-        } else {
-          const profileMap: Record<string, Profile> = {};
-          for (const profile of profileData ?? []) {
-            profileMap[profile.user_id] = profile;
-          }
-          setProfiles(profileMap);
-        }
-      } else {
+      if (profileError) {
+        console.error(profileError);
         setProfiles({});
+      } else {
+        const profileMap: Record<string, Profile> = {};
+        for (const profile of profileData ?? []) {
+          profileMap[profile.user_id] = profile;
+        }
+        setProfiles(profileMap);
       }
     } catch (error) {
       console.error(error);
       setErrorMessage("ブックマークの読み込みに失敗しました。");
       setPosts([]);
       setProfiles({});
-      setBookmarkedPostIds([]);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadPage();
+    loadBookmarks();
   }, []);
 
   const formatDate = (dateString: string) => {
@@ -201,11 +219,17 @@ export default function BookmarksPage() {
     if (post.user_id && profiles[post.user_id]?.display_name) {
       return profiles[post.user_id].display_name!;
     }
-    return post.user_email?.split("@")[0] ?? "ユーザー";
+    if (post.user_id && profiles[post.user_id]?.username) {
+      return profiles[post.user_id].username!;
+    }
+    return "ユーザー";
   };
 
   const getUsername = (post: Post) => {
-    return post.user_email?.split("@")[0] ?? "user";
+    if (post.user_id && profiles[post.user_id]?.username) {
+      return profiles[post.user_id].username!;
+    }
+    return "user";
   };
 
   const getAvatarUrl = (post: Post) => {
@@ -215,318 +239,209 @@ export default function BookmarksPage() {
     return null;
   };
 
-  const handleRemoveBookmark = async (postId: number) => {
-    if (!currentUserId) {
-      alert("ログインしてね");
-      return;
-    }
-
-    const { error } = await supabase
-      .from("bookmarks")
-      .delete()
-      .eq("user_id", currentUserId)
-      .eq("post_id", postId);
-
-    if (error) {
-      alert("ブックマーク解除失敗: " + error.message);
-      return;
-    }
-
-    setBookmarkedPostIds((prev) => prev.filter((id) => id !== postId));
-    setPosts((prev) => prev.filter((post) => post.id !== postId));
-  };
-
   return (
     <main
       style={{
         minHeight: "100vh",
-        background: theme.background,
-        color: theme.text,
-        fontFamily:
-          'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+        background: currentTheme.background,
+        color: currentTheme.text,
+        fontFamily: "sans-serif",
       }}
     >
       <div
         style={{
-          maxWidth: "720px",
+          maxWidth: "680px",
           margin: "0 auto",
-          borderLeft: `1px solid ${theme.border}`,
-          borderRight: `1px solid ${theme.border}`,
+          borderLeft: `1px solid ${currentTheme.border}`,
+          borderRight: `1px solid ${currentTheme.border}`,
           minHeight: "100vh",
-          background: theme.background,
+          background: currentTheme.background,
         }}
       >
         <header
           style={{
             position: "sticky",
             top: 0,
-            background: `${theme.background}ee`,
-            backdropFilter: "blur(14px)",
-            borderBottom: `1px solid ${theme.border}`,
-            padding: "16px 20px 14px",
-            zIndex: 20,
+            background: `${currentTheme.background}ee`,
+            backdropFilter: "blur(8px)",
+            borderBottom: `1px solid ${currentTheme.border}`,
+            padding: "18px 20px",
+            zIndex: 10,
           }}
         >
           <Link
             href="/"
             style={{
-              color: theme.accent,
+              color: currentTheme.accent,
               textDecoration: "none",
               fontSize: "14px",
               display: "inline-block",
-              marginBottom: "10px",
-              fontWeight: "bold",
+              marginBottom: "8px",
             }}
           >
             ← ホームに戻る
           </Link>
 
-          <div
+          <h1
             style={{
-              fontSize: "26px",
-              fontWeight: 800,
-              letterSpacing: "-0.02em",
-              marginBottom: "6px",
-              color: theme.text,
-            }}
-          >
-            Ulein
-          </div>
-
-          <div
-            style={{
-              color: theme.muted,
-              fontSize: "14px",
+              margin: 0,
+              fontSize: "24px",
+              fontWeight: "bold",
             }}
           >
             ブックマーク
-          </div>
+          </h1>
         </header>
 
         {errorMessage && (
           <div
             style={{
-              margin: "18px 20px 0",
-              padding: "14px 16px",
+              padding: "20px",
               color: "#ffb4b4",
-              border: "1px solid rgba(255,107,107,0.25)",
-              background: "rgba(255,107,107,0.08)",
-              borderRadius: "18px",
+              borderBottom: `1px solid ${currentTheme.border}`,
             }}
           >
             {errorMessage}
           </div>
         )}
 
-        <section style={{ padding: "20px" }}>
+        <section>
           {loading ? (
-            <div
-              style={{
-                border: `1px solid ${theme.border}`,
-                borderRadius: "18px",
-                padding: "18px",
-                color: theme.muted,
-                background: theme.card,
-              }}
-            >
+            <p style={{ padding: "20px", color: currentTheme.muted }}>
               読み込み中...
-            </div>
-          ) : !currentUserId ? (
-            <div
-              style={{
-                border: `1px solid ${theme.border}`,
-                borderRadius: "18px",
-                padding: "18px",
-                color: theme.muted,
-                background: theme.card,
-              }}
-            >
-              ログインするとブックマークを見れる
-            </div>
+            </p>
           ) : posts.length === 0 ? (
-            <div
-              style={{
-                border: `1px solid ${theme.border}`,
-                borderRadius: "18px",
-                padding: "18px",
-                color: theme.muted,
-                background: theme.card,
-              }}
-            >
+            <p style={{ padding: "20px", color: currentTheme.muted }}>
               まだブックマークがない
-            </div>
+            </p>
           ) : (
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "14px",
-              }}
-            >
-              {posts.map((post) => {
-                const profileHref = post.user_id ? `/users/${post.user_id}` : "/profile";
-                const isBookmarked = bookmarkedPostIds.includes(post.id);
+            posts.map((post) => {
+              const profileHref = post.user_id ? `/users/${post.user_id}` : "/profile";
+              const avatarUrl = getAvatarUrl(post);
 
-                return (
-                  <article
-                    key={post.id}
-                    style={{
-                      border: `1px solid ${theme.border}`,
-                      borderRadius: "20px",
-                      padding: "18px",
-                      background: theme.card,
-                      boxShadow: "0 10px 28px rgba(0,0,0,0.08)",
-                    }}
-                  >
+              return (
+                <article
+                  key={post.id}
+                  style={{
+                    display: "flex",
+                    gap: "12px",
+                    padding: "18px 20px",
+                    borderBottom: `1px solid ${currentTheme.border}`,
+                  }}
+                >
+                  {avatarUrl ? (
+                    <Link href={profileHref}>
+                      <img
+                        src={avatarUrl}
+                        alt="avatar"
+                        style={{
+                          width: sizes.avatar,
+                          height: sizes.avatar,
+                          borderRadius: "9999px",
+                          objectFit: "cover",
+                          border: `1px solid ${currentTheme.border}`,
+                        }}
+                      />
+                    </Link>
+                  ) : (
+                    <Link
+                      href={profileHref}
+                      style={{
+                        width: sizes.avatar,
+                        height: sizes.avatar,
+                        borderRadius: "9999px",
+                        background: currentTheme.accent,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontWeight: "bold",
+                        color: "#ffffff",
+                        textDecoration: "none",
+                        flexShrink: 0,
+                      }}
+                    >
+                      {getDisplayName(post).slice(0, 1).toUpperCase()}
+                    </Link>
+                  )}
+
+                  <div style={{ flex: 1 }}>
                     <div
                       style={{
                         display: "flex",
-                        gap: "14px",
-                        alignItems: "flex-start",
+                        gap: "8px",
+                        alignItems: "center",
+                        flexWrap: "wrap",
+                        marginBottom: "8px",
                       }}
                     >
-                      {getAvatarUrl(post) ? (
-                        <Link href={profileHref} style={{ flexShrink: 0 }}>
-                          <img
-                            src={getAvatarUrl(post)!}
-                            alt="avatar"
-                            style={{
-                              width: "52px",
-                              height: "52px",
-                              borderRadius: "9999px",
-                              objectFit: "cover",
-                              border: `1px solid ${theme.border}`,
-                            }}
-                          />
-                        </Link>
-                      ) : (
-                        <Link
-                          href={profileHref}
-                          style={{
-                            width: "52px",
-                            height: "52px",
-                            borderRadius: "9999px",
-                            background: theme.accent,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            color: "#ffffff",
-                            textDecoration: "none",
-                            fontWeight: "bold",
-                            flexShrink: 0,
-                          }}
-                        >
-                          {getDisplayName(post).slice(0, 1).toUpperCase()}
-                        </Link>
-                      )}
+                      <Link
+                        href={profileHref}
+                        style={{
+                          color: currentTheme.text,
+                          fontWeight: "bold",
+                          textDecoration: "none",
+                        }}
+                      >
+                        {getDisplayName(post)}
+                      </Link>
 
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div
-                          style={{
-                            display: "flex",
-                            gap: "8px",
-                            alignItems: "center",
-                            marginBottom: "10px",
-                            flexWrap: "wrap",
-                          }}
-                        >
-                          <Link
-                            href={profileHref}
-                            style={{
-                              fontWeight: "bold",
-                              color: theme.text,
-                              textDecoration: "none",
-                            }}
-                          >
-                            {getDisplayName(post)}
-                          </Link>
+                      <span style={{ color: currentTheme.muted, fontSize: sizes.meta }}>
+                        @{getUsername(post)}
+                      </span>
 
-                          <span style={{ color: theme.muted }}>
-                            @{getUsername(post)}
-                          </span>
-
-                          <span style={{ color: theme.muted, fontSize: "13px" }}>
-                            ・ {formatDate(post.created_at)}
-                          </span>
-                        </div>
-
-                        <p
-                          style={{
-                            margin: 0,
-                            marginBottom: post.image_url ? "12px" : "14px",
-                            fontSize: "17px",
-                            lineHeight: 1.75,
-                            whiteSpace: "pre-wrap",
-                            wordBreak: "break-word",
-                            color: theme.text,
-                          }}
-                        >
-                          {post.content}
-                        </p>
-
-                        {post.image_url && (
-                          <div
-                            style={{
-                              marginBottom: "14px",
-                              border: `1px solid ${theme.border}`,
-                              borderRadius: "18px",
-                              overflow: "hidden",
-                              background: theme.background,
-                            }}
-                          >
-                            <img
-                              src={post.image_url}
-                              alt="post image"
-                              style={{
-                                width: "100%",
-                                maxHeight: "420px",
-                                objectFit: "cover",
-                                display: "block",
-                              }}
-                            />
-                          </div>
-                        )}
-
-                        <div
-                          style={{
-                            display: "flex",
-                            gap: "10px",
-                            flexWrap: "wrap",
-                            alignItems: "center",
-                          }}
-                        >
-                          <span
-                            style={{
-                              color: theme.muted,
-                              fontSize: "14px",
-                              fontWeight: "bold",
-                            }}
-                          >
-                            ❤️ いいね {post.likes}
-                          </span>
-
-                          <button
-                            onClick={() => handleRemoveBookmark(post.id)}
-                            style={{
-                              background: "transparent",
-                              color: isBookmarked ? "#ffd166" : theme.muted,
-                              border: `1px solid ${theme.border}`,
-                              padding: "8px 14px",
-                              borderRadius: "9999px",
-                              cursor: "pointer",
-                              fontSize: "13px",
-                              fontWeight: "bold",
-                            }}
-                          >
-                            🔖 ブックマーク解除
-                          </button>
-                        </div>
-                      </div>
+                      <span style={{ color: currentTheme.muted, fontSize: sizes.meta }}>
+                        ・ {formatDate(post.created_at)}
+                      </span>
                     </div>
-                  </article>
-                );
-              })}
-            </div>
+
+                    <p
+                      style={{
+                        margin: 0,
+                        marginBottom: post.image_url ? "12px" : "0",
+                        color: currentTheme.text,
+                        lineHeight: 1.6,
+                        fontSize: sizes.postText,
+                        whiteSpace: "pre-wrap",
+                      }}
+                    >
+                      {post.content}
+                    </p>
+
+                    {post.image_url && (
+                      <div
+                        style={{
+                          marginTop: "12px",
+                          border: `1px solid ${currentTheme.border}`,
+                          borderRadius: "16px",
+                          overflow: "hidden",
+                        }}
+                      >
+                        <img
+                          src={post.image_url}
+                          alt="post image"
+                          style={{
+                            width: "100%",
+                            maxHeight: "420px",
+                            objectFit: "cover",
+                            display: "block",
+                          }}
+                        />
+                      </div>
+                    )}
+
+                    <div
+                      style={{
+                        marginTop: "12px",
+                        color: currentTheme.muted,
+                        fontSize: sizes.meta,
+                      }}
+                    >
+                      ❤️ {post.likes}
+                    </div>
+                  </div>
+                </article>
+              );
+            })
           )}
         </section>
       </div>
