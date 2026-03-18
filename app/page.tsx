@@ -24,6 +24,7 @@ type Post = {
 type Profile = {
   user_id: string;
   display_name: string | null;
+  username: string | null;
   bio: string | null;
   avatar_url: string | null;
   theme_background_color: string | null;
@@ -418,7 +419,7 @@ export default function Home() {
       const { data, error } = await supabase
         .from("profiles")
         .select(
-          "user_id, display_name, bio, avatar_url, theme_background_color, theme_card_color, theme_text_color, theme_accent_color, ui_scale"
+          "user_id, display_name, username, bio, avatar_url, theme_background_color, theme_card_color, theme_text_color, theme_accent_color, ui_scale"
         )
         .limit(20);
 
@@ -437,9 +438,15 @@ export default function Home() {
         .filter((profile) => !excludedSet.has(profile.user_id))
         .sort((a, b) => {
           const aScore =
-            (a.avatar_url ? 1 : 0) + (a.display_name ? 1 : 0) + (a.bio ? 1 : 0);
+            (a.avatar_url ? 1 : 0) +
+            (a.display_name ? 1 : 0) +
+            (a.bio ? 1 : 0) +
+            (a.username ? 1 : 0);
           const bScore =
-            (b.avatar_url ? 1 : 0) + (b.display_name ? 1 : 0) + (b.bio ? 1 : 0);
+            (b.avatar_url ? 1 : 0) +
+            (b.display_name ? 1 : 0) +
+            (b.bio ? 1 : 0) +
+            (b.username ? 1 : 0);
           return bScore - aScore;
         })
         .slice(0, 5);
@@ -496,7 +503,7 @@ export default function Home() {
       const { data: profileData, error: profileError } = await supabase
         .from("profiles")
         .select(
-          "user_id, display_name, bio, avatar_url, theme_background_color, theme_card_color, theme_text_color, theme_accent_color, ui_scale"
+          "user_id, display_name, username, bio, avatar_url, theme_background_color, theme_card_color, theme_text_color, theme_accent_color, ui_scale"
         )
         .in("user_id", userIds);
 
@@ -906,11 +913,17 @@ export default function Home() {
     if (post.user_id && profiles[post.user_id]?.display_name) {
       return profiles[post.user_id].display_name!;
     }
-    return post.user_email?.split("@")[0] ?? "Kazuki";
+    if (post.user_id && profiles[post.user_id]?.username) {
+      return profiles[post.user_id].username!;
+    }
+    return "ユーザー";
   };
 
   const getUsername = (post: Post) => {
-    return post.user_email?.split("@")[0] ?? "kazuki";
+    if (post.user_id && profiles[post.user_id]?.username) {
+      return profiles[post.user_id].username!;
+    }
+    return "user";
   };
 
   const getAvatarUrl = (post: Post) => {
@@ -1864,8 +1877,9 @@ export default function Home() {
               }}
             >
               {recommendedUsers.map((profile) => {
-                const shownName = profile.display_name || "ユーザー";
+                const shownName = profile.display_name || profile.username || "ユーザー";
                 const shownBio = profile.bio || "自己紹介はまだありません";
+                const shownUsername = profile.username || "user";
 
                 return (
                   <div
@@ -1923,6 +1937,17 @@ export default function Home() {
                         }}
                       >
                         {shownName}
+                      </div>
+
+                      <div
+                        style={{
+                          color: currentTheme.muted,
+                          fontSize: uiScale.metaText,
+                          marginBottom: "4px",
+                          wordBreak: "break-word",
+                        }}
+                      >
+                        @{shownUsername}
                       </div>
 
                       <div
