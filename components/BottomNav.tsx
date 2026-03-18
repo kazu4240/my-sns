@@ -93,12 +93,11 @@ export default function BottomNav() {
         transform: "translateX(-50%)",
         width: "calc(100% - 18px)",
         maxWidth: "700px",
-        background: "rgba(21, 32, 43, 0.96)",
-        backdropFilter: "blur(14px)",
-        border: "1px solid #2f3336",
-        borderRadius: "18px",
         zIndex: 999,
-        boxShadow: "0 10px 30px rgba(0,0,0,0.28)",
+        background: "transparent",
+        border: "none",
+        boxShadow: "none",
+        pointerEvents: "none",
       }}
     >
       <div
@@ -107,6 +106,7 @@ export default function BottomNav() {
           gridTemplateColumns: "repeat(5, 1fr)",
           alignItems: "center",
           minHeight: "64px",
+          pointerEvents: "auto",
         }}
       >
         {items.map((item) => {
@@ -128,6 +128,7 @@ export default function BottomNav() {
                 minHeight: "64px",
                 textDecoration: "none",
                 color: active ? "#ffffff" : "#8899a6",
+                background: "transparent",
               }}
             >
               <Icon active={active} />
