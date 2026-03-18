@@ -23,6 +23,30 @@ const DEFAULT_ACCENT = "#1d9bf0";
 const DEFAULT_UI_SCALE = "normal";
 const DEFAULT_BORDER = "#2f3336";
 
+const PRESET_THEMES = [
+  {
+    name: "紺",
+    background: "#15202b",
+    card: "#192734",
+    text: "#ffffff",
+    accent: "#1d9bf0",
+  },
+  {
+    name: "黒",
+    background: "#000000",
+    card: "#16181c",
+    text: "#ffffff",
+    accent: "#1d9bf0",
+  },
+  {
+    name: "白",
+    background: "#ffffff",
+    card: "#f7f9f9",
+    text: "#0f1419",
+    accent: "#1d9bf0",
+  },
+];
+
 export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -35,7 +59,8 @@ export default function ProfilePage() {
   const [bio, setBio] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
 
-  const [themeBackgroundColor, setThemeBackgroundColor] = useState(DEFAULT_BACKGROUND);
+  const [themeBackgroundColor, setThemeBackgroundColor] =
+    useState(DEFAULT_BACKGROUND);
   const [themeCardColor, setThemeCardColor] = useState(DEFAULT_CARD);
   const [themeTextColor, setThemeTextColor] = useState(DEFAULT_TEXT);
   const [themeAccentColor, setThemeAccentColor] = useState(DEFAULT_ACCENT);
@@ -55,7 +80,12 @@ export default function ProfilePage() {
       muted: textColor === "#000000" ? "#555555" : "#8899a6",
       softText: textColor === "#000000" ? "#444444" : "#cfd9de",
     };
-  }, [themeBackgroundColor, themeCardColor, themeTextColor, themeAccentColor]);
+  }, [
+    themeBackgroundColor,
+    themeCardColor,
+    themeTextColor,
+    themeAccentColor,
+  ]);
 
   const uiSize = useMemo(() => {
     if (uiScale === "compact") {
@@ -137,7 +167,9 @@ export default function ProfilePage() {
       setDisplayName(profile?.display_name ?? "");
       setBio(profile?.bio ?? "");
       setAvatarUrl(profile?.avatar_url ?? "");
-      setThemeBackgroundColor(profile?.theme_background_color ?? DEFAULT_BACKGROUND);
+      setThemeBackgroundColor(
+        profile?.theme_background_color ?? DEFAULT_BACKGROUND
+      );
       setThemeCardColor(profile?.theme_card_color ?? DEFAULT_CARD);
       setThemeTextColor(profile?.theme_text_color ?? DEFAULT_TEXT);
       setThemeAccentColor(profile?.theme_accent_color ?? DEFAULT_ACCENT);
@@ -186,45 +218,45 @@ export default function ProfilePage() {
   };
 
   const handleSaveProfile = async () => {
-  if (!userId) {
-    alert("ログインしてね");
-    return;
-  }
-
-  setSaving(true);
-
-  try {
-    const { error } = await supabase.from("profiles").upsert(
-      {
-        user_id: userId,
-        display_name: displayName.trim() || null,
-        bio: bio.trim() || null,
-        avatar_url: avatarUrl || null,
-        theme_background_color: themeBackgroundColor,
-        theme_card_color: themeCardColor,
-        theme_text_color: themeTextColor,
-        theme_accent_color: themeAccentColor,
-        ui_scale: uiScale,
-      },
-      {
-        onConflict: "user_id",
-      }
-    );
-
-    if (error) {
-      alert("保存失敗: " + error.message);
-      setSaving(false);
+    if (!userId) {
+      alert("ログインしてね");
       return;
     }
 
-    alert("プロフィールを保存しました");
-  } catch (error) {
-    console.error(error);
-    alert("保存に失敗しました");
-  } finally {
-    setSaving(false);
-  }
-};
+    setSaving(true);
+
+    try {
+      const { error } = await supabase.from("profiles").upsert(
+        {
+          user_id: userId,
+          display_name: displayName.trim() || null,
+          bio: bio.trim() || null,
+          avatar_url: avatarUrl || null,
+          theme_background_color: themeBackgroundColor,
+          theme_card_color: themeCardColor,
+          theme_text_color: themeTextColor,
+          theme_accent_color: themeAccentColor,
+          ui_scale: uiScale,
+        },
+        {
+          onConflict: "user_id",
+        }
+      );
+
+      if (error) {
+        alert("保存失敗: " + error.message);
+        setSaving(false);
+        return;
+      }
+
+      alert("プロフィールを保存しました");
+    } catch (error) {
+      console.error(error);
+      alert("保存に失敗しました");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleResetTheme = () => {
     setThemeBackgroundColor(DEFAULT_BACKGROUND);
@@ -232,6 +264,31 @@ export default function ProfilePage() {
     setThemeTextColor(DEFAULT_TEXT);
     setThemeAccentColor(DEFAULT_ACCENT);
     setUiScale(DEFAULT_UI_SCALE);
+  };
+
+  const applyPresetTheme = (preset: {
+    background: string;
+    card: string;
+    text: string;
+    accent: string;
+  }) => {
+    setThemeBackgroundColor(preset.background);
+    setThemeCardColor(preset.card);
+    setThemeTextColor(preset.text);
+    setThemeAccentColor(preset.accent);
+  };
+
+  const inputStyle = {
+    width: "100%",
+    boxSizing: "border-box" as const,
+    padding: "14px",
+    borderRadius: "14px",
+    border: `1px solid ${theme.border}`,
+    background: theme.background,
+    color: theme.text,
+    fontSize: uiSize.input,
+    outline: "none",
+    minWidth: 0,
   };
 
   return (
@@ -242,16 +299,20 @@ export default function ProfilePage() {
         color: theme.text,
         fontFamily:
           'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+        overflowX: "hidden",
       }}
     >
       <div
         style={{
+          width: "100%",
           maxWidth: "720px",
           margin: "0 auto",
           borderLeft: `1px solid ${theme.border}`,
           borderRight: `1px solid ${theme.border}`,
           minHeight: "100vh",
           background: theme.background,
+          boxSizing: "border-box",
+          overflowX: "hidden",
         }}
       >
         <header
@@ -315,7 +376,13 @@ export default function ProfilePage() {
           </div>
         )}
 
-        <section style={{ padding: "20px" }}>
+        <section
+          style={{
+            padding: "20px",
+            boxSizing: "border-box",
+            overflowX: "hidden",
+          }}
+        >
           {loading ? (
             <div
               style={{
@@ -345,6 +412,8 @@ export default function ProfilePage() {
               style={{
                 display: "grid",
                 gap: "16px",
+                width: "100%",
+                minWidth: 0,
               }}
             >
               <div
@@ -354,6 +423,9 @@ export default function ProfilePage() {
                   padding: "20px",
                   background: theme.card,
                   boxShadow: "0 10px 28px rgba(0,0,0,0.08)",
+                  boxSizing: "border-box",
+                  width: "100%",
+                  minWidth: 0,
                 }}
               >
                 <div
@@ -374,6 +446,7 @@ export default function ProfilePage() {
                         borderRadius: "9999px",
                         objectFit: "cover",
                         border: `2px solid ${theme.border}`,
+                        flexShrink: 0,
                       }}
                     />
                   ) : (
@@ -389,6 +462,7 @@ export default function ProfilePage() {
                         color: "#ffffff",
                         fontWeight: "bold",
                         fontSize: uiSize.avatar / 2.7,
+                        flexShrink: 0,
                       }}
                     >
                       {(displayName || "U").slice(0, 1).toUpperCase()}
@@ -401,6 +475,7 @@ export default function ProfilePage() {
                         fontWeight: "bold",
                         fontSize: uiSize.text + 4,
                         marginBottom: "6px",
+                        wordBreak: "break-word",
                       }}
                     >
                       {displayName || "名前未設定"}
@@ -417,7 +492,12 @@ export default function ProfilePage() {
                       {userEmail}
                     </div>
 
-                    <input type="file" accept="image/*" onChange={handleAvatarChange} />
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleAvatarChange}
+                      style={{ maxWidth: "100%" }}
+                    />
 
                     {uploadingAvatar && (
                       <div
@@ -443,9 +523,12 @@ export default function ProfilePage() {
                   boxShadow: "0 10px 28px rgba(0,0,0,0.08)",
                   display: "grid",
                   gap: "14px",
+                  boxSizing: "border-box",
+                  width: "100%",
+                  minWidth: 0,
                 }}
               >
-                <label style={{ display: "grid", gap: "8px" }}>
+                <label style={{ display: "grid", gap: "8px", minWidth: 0 }}>
                   <span style={{ fontSize: uiSize.label, fontWeight: "bold" }}>
                     表示名
                   </span>
@@ -453,19 +536,11 @@ export default function ProfilePage() {
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
                     placeholder="表示名を入力"
-                    style={{
-                      padding: "14px",
-                      borderRadius: "14px",
-                      border: `1px solid ${theme.border}`,
-                      background: theme.background,
-                      color: theme.text,
-                      fontSize: uiSize.input,
-                      outline: "none",
-                    }}
+                    style={inputStyle}
                   />
                 </label>
 
-                <label style={{ display: "grid", gap: "8px" }}>
+                <label style={{ display: "grid", gap: "8px", minWidth: 0 }}>
                   <span style={{ fontSize: uiSize.label, fontWeight: "bold" }}>
                     自己紹介
                   </span>
@@ -474,14 +549,8 @@ export default function ProfilePage() {
                     onChange={(e) => setBio(e.target.value)}
                     placeholder="自己紹介を入力"
                     style={{
+                      ...inputStyle,
                       minHeight: "120px",
-                      padding: "14px",
-                      borderRadius: "14px",
-                      border: `1px solid ${theme.border}`,
-                      background: theme.background,
-                      color: theme.text,
-                      fontSize: uiSize.input,
-                      outline: "none",
                       resize: "vertical",
                     }}
                   />
@@ -497,6 +566,9 @@ export default function ProfilePage() {
                   boxShadow: "0 10px 28px rgba(0,0,0,0.08)",
                   display: "grid",
                   gap: "14px",
+                  boxSizing: "border-box",
+                  width: "100%",
+                  minWidth: 0,
                 }}
               >
                 <div
@@ -508,7 +580,36 @@ export default function ProfilePage() {
                   テーマ設定
                 </div>
 
-                <label style={{ display: "grid", gap: "8px" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "10px",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  {PRESET_THEMES.map((preset) => (
+                    <button
+                      key={preset.name}
+                      type="button"
+                      onClick={() => applyPresetTheme(preset)}
+                      style={{
+                        background: preset.card,
+                        color: preset.text,
+                        border: `1px solid ${theme.border}`,
+                        padding: "10px 14px",
+                        borderRadius: "9999px",
+                        cursor: "pointer",
+                        fontSize: uiSize.button,
+                        fontWeight: "bold",
+                        minWidth: "72px",
+                      }}
+                    >
+                      {preset.name}
+                    </button>
+                  ))}
+                </div>
+
+                <label style={{ display: "grid", gap: "8px", minWidth: 0 }}>
                   <span style={{ fontSize: uiSize.label, fontWeight: "bold" }}>
                     背景色
                   </span>
@@ -516,19 +617,11 @@ export default function ProfilePage() {
                     value={themeBackgroundColor}
                     onChange={(e) => setThemeBackgroundColor(e.target.value)}
                     placeholder="#15202b"
-                    style={{
-                      padding: "14px",
-                      borderRadius: "14px",
-                      border: `1px solid ${theme.border}`,
-                      background: theme.background,
-                      color: theme.text,
-                      fontSize: uiSize.input,
-                      outline: "none",
-                    }}
+                    style={inputStyle}
                   />
                 </label>
 
-                <label style={{ display: "grid", gap: "8px" }}>
+                <label style={{ display: "grid", gap: "8px", minWidth: 0 }}>
                   <span style={{ fontSize: uiSize.label, fontWeight: "bold" }}>
                     カード色
                   </span>
@@ -536,19 +629,11 @@ export default function ProfilePage() {
                     value={themeCardColor}
                     onChange={(e) => setThemeCardColor(e.target.value)}
                     placeholder="#192734"
-                    style={{
-                      padding: "14px",
-                      borderRadius: "14px",
-                      border: `1px solid ${theme.border}`,
-                      background: theme.background,
-                      color: theme.text,
-                      fontSize: uiSize.input,
-                      outline: "none",
-                    }}
+                    style={inputStyle}
                   />
                 </label>
 
-                <label style={{ display: "grid", gap: "8px" }}>
+                <label style={{ display: "grid", gap: "8px", minWidth: 0 }}>
                   <span style={{ fontSize: uiSize.label, fontWeight: "bold" }}>
                     文字色
                   </span>
@@ -556,19 +641,11 @@ export default function ProfilePage() {
                     value={themeTextColor}
                     onChange={(e) => setThemeTextColor(e.target.value)}
                     placeholder="#ffffff"
-                    style={{
-                      padding: "14px",
-                      borderRadius: "14px",
-                      border: `1px solid ${theme.border}`,
-                      background: theme.background,
-                      color: theme.text,
-                      fontSize: uiSize.input,
-                      outline: "none",
-                    }}
+                    style={inputStyle}
                   />
                 </label>
 
-                <label style={{ display: "grid", gap: "8px" }}>
+                <label style={{ display: "grid", gap: "8px", minWidth: 0 }}>
                   <span style={{ fontSize: uiSize.label, fontWeight: "bold" }}>
                     アクセント色
                   </span>
@@ -576,34 +653,18 @@ export default function ProfilePage() {
                     value={themeAccentColor}
                     onChange={(e) => setThemeAccentColor(e.target.value)}
                     placeholder="#1d9bf0"
-                    style={{
-                      padding: "14px",
-                      borderRadius: "14px",
-                      border: `1px solid ${theme.border}`,
-                      background: theme.background,
-                      color: theme.text,
-                      fontSize: uiSize.input,
-                      outline: "none",
-                    }}
+                    style={inputStyle}
                   />
                 </label>
 
-                <label style={{ display: "grid", gap: "8px" }}>
+                <label style={{ display: "grid", gap: "8px", minWidth: 0 }}>
                   <span style={{ fontSize: uiSize.label, fontWeight: "bold" }}>
                     表示サイズ
                   </span>
                   <select
                     value={uiScale}
                     onChange={(e) => setUiScale(e.target.value)}
-                    style={{
-                      padding: "14px",
-                      borderRadius: "14px",
-                      border: `1px solid ${theme.border}`,
-                      background: theme.background,
-                      color: theme.text,
-                      fontSize: uiSize.input,
-                      outline: "none",
-                    }}
+                    style={inputStyle}
                   >
                     <option value="compact">小さめ</option>
                     <option value="normal">標準</option>

@@ -65,17 +65,11 @@ function ReplyIcon({
       style={{ display: "block" }}
     >
       <path
-        d="M7 10.5C7 7.46243 9.46243 5 12.5 5H16.5C19.5376 5 22 7.46243 22 10.5C22 13.5376 19.5376 16 16.5 16H13.5L8 20V16.5C6.22156 15.5367 5 13.6498 5 11.5"
+        d="M21 11.5C21 15.0899 17.6421 18 13.5 18H9L4 21V16.5C2.775 15.3107 2 13.491 2 11.5C2 7.91015 5.35786 5 9.5 5H13.5C17.6421 5 21 7.91015 21 11.5Z"
         stroke={color}
         strokeWidth="1.8"
         strokeLinecap="round"
         strokeLinejoin="round"
-      />
-      <path
-        d="M9 10H15"
-        stroke={color}
-        strokeWidth="1.8"
-        strokeLinecap="round"
       />
     </svg>
   );
