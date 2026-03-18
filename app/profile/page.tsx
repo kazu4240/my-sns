@@ -7,6 +7,7 @@ import { supabase } from "../../lib/supabase";
 type Profile = {
   user_id: string;
   display_name: string | null;
+  username: string | null;
   bio: string | null;
   avatar_url: string | null;
   theme_background_color: string | null;
@@ -56,6 +57,7 @@ export default function ProfilePage() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
 
   const [displayName, setDisplayName] = useState("");
+  const [username, setUsername] = useState("");
   const [bio, setBio] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
 
@@ -153,7 +155,7 @@ export default function ProfilePage() {
       const { data, error } = await supabase
         .from("profiles")
         .select(
-          "user_id, display_name, bio, avatar_url, theme_background_color, theme_card_color, theme_text_color, theme_accent_color, ui_scale"
+          "user_id, display_name, username, bio, avatar_url, theme_background_color, theme_card_color, theme_text_color, theme_accent_color, ui_scale"
         )
         .eq("user_id", user.id)
         .maybeSingle();
@@ -165,6 +167,7 @@ export default function ProfilePage() {
       const profile = (data as Profile | null) ?? null;
 
       setDisplayName(profile?.display_name ?? "");
+      setUsername(profile?.username ?? "");
       setBio(profile?.bio ?? "");
       setAvatarUrl(profile?.avatar_url ?? "");
       setThemeBackgroundColor(
@@ -217,19 +220,55 @@ export default function ProfilePage() {
     }
   };
 
+  const validateUsername = (value: string) => {
+    return /^[a-zA-Z0-9_]{3,20}$/.test(value);
+  };
+
   const handleSaveProfile = async () => {
     if (!userId) {
       alert("ログインしてね");
       return;
     }
 
+    const trimmedUsername = username.trim().toLowerCase();
+
+    if (!trimmedUsername) {
+      alert("username を入力してね");
+      return;
+    }
+
+    if (!validateUsername(trimmedUsername)) {
+      alert("username は 3〜20文字、英字・数字・_ のみ使えます");
+      return;
+    }
+
     setSaving(true);
 
     try {
+      const { data: existingUser, error: checkError } = await supabase
+        .from("profiles")
+        .select("user_id")
+        .ilike("username", trimmedUsername)
+        .neq("user_id", userId)
+        .maybeSingle();
+
+      if (checkError) {
+        alert("username確認失敗: " + checkError.message);
+        setSaving(false);
+        return;
+      }
+
+      if (existingUser) {
+        alert("その username はすでに使われています");
+        setSaving(false);
+        return;
+      }
+
       const { error } = await supabase.from("profiles").upsert(
         {
           user_id: userId,
           display_name: displayName.trim() || null,
+          username: trimmedUsername,
           bio: bio.trim() || null,
           avatar_url: avatarUrl || null,
           theme_background_color: themeBackgroundColor,
@@ -249,6 +288,7 @@ export default function ProfilePage() {
         return;
       }
 
+      setUsername(trimmedUsername);
       alert("プロフィールを保存しました");
     } catch (error) {
       console.error(error);
@@ -485,6 +525,17 @@ export default function ProfilePage() {
                       style={{
                         color: theme.muted,
                         fontSize: uiSize.label,
+                        marginBottom: "6px",
+                        wordBreak: "break-word",
+                      }}
+                    >
+                      @{username || "username未設定"}
+                    </div>
+
+                    <div
+                      style={{
+                        color: theme.muted,
+                        fontSize: uiSize.label,
                         marginBottom: "10px",
                         wordBreak: "break-all",
                       }}
@@ -538,6 +589,27 @@ export default function ProfilePage() {
                     placeholder="表示名を入力"
                     style={inputStyle}
                   />
+                </label>
+
+                <label style={{ display: "grid", gap: "8px", minWidth: 0 }}>
+                  <span style={{ fontSize: uiSize.label, fontWeight: "bold" }}>
+                    公開ID（username）
+                  </span>
+                  <input
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value.toLowerCase())}
+                    placeholder="例: kazuki_ulein"
+                    style={inputStyle}
+                  />
+                  <div
+                    style={{
+                      color: theme.muted,
+                      fontSize: uiSize.label,
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    3〜20文字、英字・数字・_ のみ使えます
+                  </div>
                 </label>
 
                 <label style={{ display: "grid", gap: "8px", minWidth: 0 }}>
