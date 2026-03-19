@@ -8,7 +8,6 @@ import {
   useMemo,
   useState,
 } from "react";
-import { useSearchParams } from "next/navigation";
 import { supabase } from "../lib/supabase";
 
 type Post = {
@@ -184,7 +183,6 @@ function SettingsIcon({ size, color }: { size: number; color: string }) {
 }
 
 export default function Home() {
-  const searchParams = useSearchParams();
 
   const [posts, setPosts] = useState<Post[]>([]);
   const [profiles, setProfiles] = useState<Record<string, Profile>>({});
@@ -607,29 +605,31 @@ export default function Home() {
   }, [activeTab, userId]);
 
   useEffect(() => {
-    const replyTo = searchParams.get("replyTo");
-    if (!replyTo) return;
+  if (typeof window === "undefined") return;
 
-    const replyId = Number(replyTo);
-    if (!Number.isFinite(replyId)) return;
+  const params = new URLSearchParams(window.location.search);
+  const replyTo = params.get("replyTo");
+  if (!replyTo) return;
 
-    const targetPost = posts.find((post) => post.id === replyId);
-    if (!targetPost) return;
+  const replyId = Number(replyTo);
+  if (!Number.isFinite(replyId)) return;
 
-    setEditingId(null);
-    setReplyingToId(replyId);
-    setText("");
-    setSelectedImage(null);
-    setPreviewUrl("");
+  const targetPost = posts.find((post) => post.id === replyId);
+  if (!targetPost) return;
 
-    if (typeof window !== "undefined") {
-      const url = new URL(window.location.href);
-      url.searchParams.delete("replyTo");
-      const nextUrl = `${url.pathname}${url.search}${url.hash}`;
-      window.history.replaceState({}, "", nextUrl);
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    }
-  }, [searchParams, posts]);
+  setEditingId(null);
+  setReplyingToId(replyId);
+  setText("");
+  setSelectedImage(null);
+  setPreviewUrl("");
+
+  params.delete("replyTo");
+  const nextSearch = params.toString();
+  const nextUrl = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ""}${window.location.hash}`;
+  window.history.replaceState({}, "", nextUrl);
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}, [posts]);
+
 
   useEffect(() => {
     const handleWindowClick = () => {
