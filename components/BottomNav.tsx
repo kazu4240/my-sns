@@ -152,7 +152,7 @@ export default function BottomNav() {
       style={{
         position: "fixed",
         left: "50%",
-        bottom: "10px",
+        bottom: "0",
         transform: "translateX(-50%)",
         width: "min(720px, 100%)",
         zIndex: 50,
@@ -189,6 +189,7 @@ export default function BottomNav() {
                 height: "100%",
                 color: isActive ? "#ffffff" : "#8899a6",
                 opacity: 1,
+                transform: "translateY(-4px)",
               }}
             >
               {item.render(isActive)}
