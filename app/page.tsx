@@ -2201,7 +2201,7 @@ export default function Home() {
         style={{
           position: "fixed",
           right: "20px",
-          bottom: "92px",
+          bottom: "40px",
           width: "64px",
           height: "64px",
           borderRadius: "9999px",
