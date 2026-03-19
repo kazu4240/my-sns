@@ -1247,22 +1247,46 @@ export default function UserProfilePage() {
               </div>
 
               {!isOwnProfile && (
-                <button
-                  onClick={handleFollowToggle}
-                  disabled={followLoading}
+                <div
                   style={{
-                    background: isFollowing ? "transparent" : theme.accent,
-                    color: "#ffffff",
-                    border: isFollowing ? `1px solid ${theme.border}` : "none",
-                    padding: "10px 18px",
-                    borderRadius: "9999px",
-                    fontWeight: "bold",
-                    fontSize: `${uiScale.actionText}px`,
-                    cursor: followLoading ? "not-allowed" : "pointer",
+                    display: "flex",
+                    gap: "10px",
+                    alignItems: "center",
                   }}
                 >
-                  {followLoading ? "処理中..." : isFollowing ? "フォロー中" : "フォロー"}
-                </button>
+                  <Link
+                    href={`/dm/${targetProfile.user_id}`}
+                    style={{
+                      background: "transparent",
+                      color: theme.text,
+                      border: `1px solid ${theme.border}`,
+                      padding: "10px 16px",
+                      borderRadius: "9999px",
+                      fontWeight: "bold",
+                      fontSize: `${uiScale.actionText}px`,
+                      textDecoration: "none",
+                    }}
+                  >
+                    DM
+                  </Link>
+
+                  <button
+                    onClick={handleFollowToggle}
+                    disabled={followLoading}
+                    style={{
+                      background: isFollowing ? "transparent" : theme.accent,
+                      color: "#ffffff",
+                      border: isFollowing ? `1px solid ${theme.border}` : "none",
+                      padding: "10px 18px",
+                      borderRadius: "9999px",
+                      fontWeight: "bold",
+                      fontSize: `${uiScale.actionText}px`,
+                      cursor: followLoading ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    {followLoading ? "処理中..." : isFollowing ? "フォロー中" : "フォロー"}
+                  </button>
+                </div>
               )}
 
               {isOwnProfile && (
