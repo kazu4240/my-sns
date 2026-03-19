@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 
 function HomeIcon({ active }: { active: boolean }) {
   return (
@@ -144,12 +145,28 @@ const navItems = [
   { href: "/dm", render: (active: boolean) => <DMIcon active={active} /> },
 ];
 
-type BottomNavProps = {
-  hidden?: boolean;
-};
-
-export default function BottomNav({ hidden = false }: BottomNavProps) {
+export default function BottomNav() {
   const pathname = usePathname();
+  const [hidden, setHidden] = useState(false);
+
+  useEffect(() => {
+    const handleVisibility = (event: Event) => {
+      const customEvent = event as CustomEvent<{ hidden?: boolean }>;
+      setHidden(!!customEvent.detail?.hidden);
+    };
+
+    window.addEventListener(
+      "bottom-nav-visibility",
+      handleVisibility as EventListener
+    );
+
+    return () => {
+      window.removeEventListener(
+        "bottom-nav-visibility",
+        handleVisibility as EventListener
+      );
+    };
+  }, []);
 
   return (
     <nav
@@ -158,7 +175,7 @@ export default function BottomNav({ hidden = false }: BottomNavProps) {
         left: "50%",
         bottom: "0",
         transform: hidden
-          ? "translateX(-50%) translateY(100%)"
+          ? "translateX(-50%) translateY(110%)"
           : "translateX(-50%) translateY(0)",
         width: "min(720px, 100%)",
         zIndex: 50,
