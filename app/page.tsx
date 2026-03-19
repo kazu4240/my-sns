@@ -1974,7 +1974,7 @@ export default function Home() {
             alignItems: "center",
             justifyContent: "center",
             transition: "transform 0.22s ease, opacity 0.22s ease",
-            transform: `translateY(${headerHidden ? "-35px" : "0"})`,
+            transform: `translateY(${headerHidden ? "10px" : "0"})`,
             opacity: headerHidden ? 0.92 : 1,
           }}
           aria-label="投稿を作成"
