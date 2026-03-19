@@ -189,7 +189,7 @@ export default function BottomNav() {
                 height: "100%",
                 color: isActive ? "#ffffff" : "#8899a6",
                 opacity: 1,
-                transform: "translateY(-4px)",
+                transform: "translateY(-7px)",
               }}
             >
               {item.render(isActive)}
