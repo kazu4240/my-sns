@@ -2200,7 +2200,7 @@ export default function Home() {
         onClick={openNewComposer}
         style={{
           position: "fixed",
-          right: "20px",
+          right: "12px",
           bottom: "68px",
           width: "64px",
           height: "64px",
