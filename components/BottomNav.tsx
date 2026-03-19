@@ -152,7 +152,7 @@ export default function BottomNav() {
       style={{
         position: "fixed",
         left: "50%",
-        bottom: "0",
+        bottom: "10px",
         transform: "translateX(-50%)",
         width: "min(720px, 100%)",
         zIndex: 50,
