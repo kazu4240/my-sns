@@ -45,7 +45,7 @@ type HomeTab = "all" | "following" | "popular";
 
 type FeedItem =
   | { type: "post"; post: Post }
-  | { type: "recommended"; key: string };
+  | { type: "recommendation"; users: Profile[]; key: string };
 
 const DEFAULT_BACKGROUND = "#15202b";
 const DEFAULT_CARD = "#192734";
@@ -198,7 +198,8 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<HomeTab>("all");
   const [openMenuPostId, setOpenMenuPostId] = useState<number | null>(null);
   const [openSettingsMenu, setOpenSettingsMenu] = useState(false);
-  const [composerOpen, setComposerOpen] = useState(false);
+  const [isComposerOpen, setIsComposerOpen] = useState(false);
+  const [headerHidden, setHeaderHidden] = useState(false);
 
   const [text, setText] = useState("");
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
@@ -354,27 +355,53 @@ export default function Home() {
     return map;
   }, [posts]);
 
+  const recommendedChunks = useMemo(() => {
+    const chunkSize = 3;
+    const chunks: Profile[][] = [];
+
+    for (let i = 0; i < recommendedUsers.length; i += chunkSize) {
+      chunks.push(recommendedUsers.slice(i, i + chunkSize));
+    }
+
+    return chunks;
+  }, [recommendedUsers]);
+
   const feedItems = useMemo(() => {
     const items: FeedItem[] = [];
+    const interval = 10;
 
     displayedPosts.forEach((post, index) => {
       items.push({ type: "post", post });
 
-      const shouldInsertRecommended =
-        recommendedUsers.length > 0 &&
-        index !== displayedPosts.length - 1 &&
-        (index + 1) % 10 === 0;
+      const shouldInsertRecommendation =
+        recommendedChunks.length > 0 &&
+        (index + 1) % interval === 0 &&
+        Math.floor((index + 1) / interval) - 1 < recommendedChunks.length;
 
-      if (shouldInsertRecommended) {
+      if (shouldInsertRecommendation) {
+        const chunkIndex = Math.floor((index + 1) / interval) - 1;
         items.push({
-          type: "recommended",
-          key: `recommended-${index + 1}`,
+          type: "recommendation",
+          users: recommendedChunks[chunkIndex],
+          key: `recommendation-${chunkIndex}`,
         });
       }
     });
 
+    if (
+      displayedPosts.length > 0 &&
+      displayedPosts.length < interval &&
+      recommendedChunks.length > 0
+    ) {
+      items.push({
+        type: "recommendation",
+        users: recommendedChunks[0],
+        key: "recommendation-tail",
+      });
+    }
+
     return items;
-  }, [displayedPosts, recommendedUsers]);
+  }, [displayedPosts, recommendedChunks]);
 
   const createNotification = async ({
     user_id,
@@ -509,7 +536,7 @@ export default function Home() {
 
           return bScore - aScore;
         })
-        .slice(0, 5);
+        .slice(0, 9);
 
       setRecommendedUsers(filtered);
     } catch (error) {
@@ -530,7 +557,7 @@ export default function Home() {
         .from("posts")
         .select("*")
         .order("created_at", { ascending: false })
-        .limit(50);
+        .limit(80);
 
       if (error) {
         throw new Error(error.message);
@@ -604,7 +631,6 @@ export default function Home() {
 
     const currentEmail = user?.email ?? null;
     const currentId = user?.id ?? null;
-
     setUserEmail(currentEmail);
     setUserId(currentId);
 
@@ -646,14 +672,11 @@ export default function Home() {
     setText("");
     setSelectedImage(null);
     setPreviewUrl("");
-    setComposerOpen(true);
+    setIsComposerOpen(true);
 
     params.delete("replyTo");
     const nextSearch = params.toString();
-    const nextUrl = `${window.location.pathname}${
-      nextSearch ? `?${nextSearch}` : ""
-    }${window.location.hash}`;
-
+    const nextUrl = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ""}${window.location.hash}`;
     window.history.replaceState({}, "", nextUrl);
   }, [posts]);
 
@@ -666,6 +689,62 @@ export default function Home() {
     window.addEventListener("click", handleWindowClick);
     return () => window.removeEventListener("click", handleWindowClick);
   }, []);
+
+  useEffect(() => {
+    let lastY = window.scrollY;
+    let ticking = false;
+
+    const onScroll = () => {
+      if (isComposerOpen) return;
+      if (ticking) return;
+      ticking = true;
+
+      window.requestAnimationFrame(() => {
+        const currentY = window.scrollY;
+        const diff = currentY - lastY;
+
+        if (currentY <= 12) {
+          setHeaderHidden(false);
+          window.dispatchEvent(
+            new CustomEvent("bottom-nav-visibility", {
+              detail: { hidden: false },
+            })
+          );
+        } else if (diff > 8) {
+          setHeaderHidden(true);
+          window.dispatchEvent(
+            new CustomEvent("bottom-nav-visibility", {
+              detail: { hidden: true },
+            })
+          );
+        } else if (diff < -8) {
+          setHeaderHidden(false);
+          window.dispatchEvent(
+            new CustomEvent("bottom-nav-visibility", {
+              detail: { hidden: false },
+            })
+          );
+        }
+
+        lastY = currentY;
+        ticking = false;
+      });
+    };
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [isComposerOpen]);
+
+  useEffect(() => {
+    if (!isComposerOpen) return;
+
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [isComposerOpen]);
 
   const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;
@@ -710,21 +789,34 @@ export default function Home() {
     setPreviewUrl("");
     setEditingId(null);
     setReplyingToId(null);
-    setComposerOpen(false);
   };
 
-  const openNewComposer = () => {
+  const closeComposer = () => {
+    resetComposer();
+    setIsComposerOpen(false);
+
+    window.dispatchEvent(
+      new CustomEvent("bottom-nav-visibility", {
+        detail: { hidden: false },
+      })
+    );
+
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("replyTo");
+      const nextUrl = `${url.pathname}${url.search}${url.hash}`;
+      window.history.replaceState({}, "", nextUrl);
+    }
+  };
+
+  const handleOpenComposer = () => {
     if (!userEmail || !userId) {
       alert("投稿するにはログインしてね");
       return;
     }
 
-    setEditingId(null);
-    setReplyingToId(null);
-    setText("");
-    setSelectedImage(null);
-    setPreviewUrl("");
-    setComposerOpen(true);
+    resetComposer();
+    setIsComposerOpen(true);
   };
 
   const handlePost = async () => {
@@ -765,13 +857,12 @@ export default function Home() {
           )
         );
 
-        resetComposer();
+        closeComposer();
         setSubmitting(false);
         return;
       }
 
       let imageUrl: string | null = null;
-
       if (selectedImage) {
         imageUrl = await uploadPostImage();
       }
@@ -819,7 +910,7 @@ export default function Home() {
         }
       }
 
-      resetComposer();
+      closeComposer();
     } catch (error) {
       console.error(error);
       alert("投稿失敗");
@@ -965,7 +1056,7 @@ export default function Home() {
     setOpenMenuPostId(null);
 
     if (editingId === post.id || replyingToId === post.id) {
-      resetComposer();
+      closeComposer();
     }
   };
 
@@ -981,7 +1072,7 @@ export default function Home() {
     setSelectedImage(null);
     setPreviewUrl("");
     setOpenMenuPostId(null);
-    setComposerOpen(true);
+    setIsComposerOpen(true);
   };
 
   const handleReply = (post: Post) => {
@@ -995,18 +1086,7 @@ export default function Home() {
     setText("");
     setSelectedImage(null);
     setPreviewUrl("");
-    setComposerOpen(true);
-  };
-
-  const handleCancelEdit = () => {
-    resetComposer();
-
-    if (typeof window !== "undefined") {
-      const url = new URL(window.location.href);
-      url.searchParams.delete("replyTo");
-      const nextUrl = `${url.pathname}${url.search}${url.hash}`;
-      window.history.replaceState({}, "", nextUrl);
-    }
+    setIsComposerOpen(true);
   };
 
   const handleLogout = async () => {
@@ -1026,7 +1106,7 @@ export default function Home() {
     setActiveTab("all");
     setOpenMenuPostId(null);
     setOpenSettingsMenu(false);
-    resetComposer();
+    closeComposer();
     setProfiles({});
     await fetchPostsAndProfiles(null);
     alert("ログアウトしたよ");
@@ -1172,8 +1252,8 @@ export default function Home() {
     flexShrink: 0,
   } as const;
 
-  const renderRecommendedUsersBlock = (key: string) => {
-    if (recommendedUsers.length === 0) return null;
+  const renderRecommendedSection = (users: Profile[], key: string) => {
+    if (users.length === 0) return null;
 
     return (
       <section
@@ -1192,94 +1272,103 @@ export default function Home() {
           おすすめユーザー
         </div>
 
-        {recommendedUsers.map((profile) => {
+        {users.map((profile) => {
           const shownName = profile.display_name || profile.username || "ユーザー";
           const shownBio = profile.bio || "自己紹介はまだありません";
           const shownUsername = profile.username || "user";
           const isFollowingRecommended = followingUserIds.includes(profile.user_id);
-          const isLoadingFollow =
-            recommendedFollowLoadingUserId === profile.user_id;
+          const isLoadingFollow = recommendedFollowLoadingUserId === profile.user_id;
 
           return (
-            <Link
+            <div
               key={profile.user_id}
-              href={`/users/${profile.user_id}`}
               style={{
                 display: "flex",
                 alignItems: "center",
                 gap: "12px",
                 padding: "14px 20px",
                 borderTop: `1px solid ${currentTheme.border}`,
-                textDecoration: "none",
-                color: currentTheme.text,
               }}
             >
-              {profile.avatar_url ? (
-                <img
-                  src={profile.avatar_url}
-                  alt="avatar"
-                  style={{
-                    width: uiScale.recommendedAvatar,
-                    height: uiScale.recommendedAvatar,
-                    borderRadius: "9999px",
-                    objectFit: "cover",
-                    flexShrink: 0,
-                  }}
-                />
-              ) : (
-                <div
-                  style={{
-                    width: uiScale.recommendedAvatar,
-                    height: uiScale.recommendedAvatar,
-                    borderRadius: "9999px",
-                    background: currentTheme.accent,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: "#ffffff",
-                    fontWeight: "bold",
-                    flexShrink: 0,
-                    fontSize: uiScale.replyText,
-                  }}
-                >
-                  {shownName.slice(0, 1).toUpperCase()}
-                </div>
-              )}
+              <Link
+                href={`/users/${profile.user_id}`}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "12px",
+                  minWidth: 0,
+                  flex: 1,
+                  textDecoration: "none",
+                  color: currentTheme.text,
+                }}
+              >
+                {profile.avatar_url ? (
+                  <img
+                    src={profile.avatar_url}
+                    alt="avatar"
+                    style={{
+                      width: uiScale.recommendedAvatar,
+                      height: uiScale.recommendedAvatar,
+                      borderRadius: "9999px",
+                      objectFit: "cover",
+                      flexShrink: 0,
+                    }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      width: uiScale.recommendedAvatar,
+                      height: uiScale.recommendedAvatar,
+                      borderRadius: "9999px",
+                      background: currentTheme.accent,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "#ffffff",
+                      fontWeight: "bold",
+                      flexShrink: 0,
+                      fontSize: uiScale.replyText,
+                    }}
+                  >
+                    {shownName.slice(0, 1).toUpperCase()}
+                  </div>
+                )}
 
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <div
-                  style={{
-                    fontWeight: "bold",
-                    fontSize: uiScale.replyText,
-                    marginBottom: "4px",
-                    wordBreak: "break-word",
-                  }}
-                >
-                  {shownName}
-                </div>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div
+                    style={{
+                      fontWeight: "bold",
+                      fontSize: uiScale.replyText,
+                      marginBottom: "4px",
+                      wordBreak: "break-word",
+                    }}
+                  >
+                    {shownName}
+                  </div>
 
-                <div
-                  style={{
-                    color: currentTheme.muted,
-                    fontSize: uiScale.metaText,
-                    marginBottom: "4px",
-                    wordBreak: "break-word",
-                  }}
-                >
-                  @{shownUsername}
-                </div>
+                  <div
+                    style={{
+                      color: currentTheme.muted,
+                      fontSize: uiScale.metaText,
+                      marginBottom: "4px",
+                      wordBreak: "break-word",
+                    }}
+                  >
+                    @{shownUsername}
+                  </div>
 
-                <div
-                  style={{
-                    color: currentTheme.muted,
-                    fontSize: uiScale.metaText,
-                    lineHeight: 1.5,
-                    wordBreak: "break-word",
-                  }}
-                >
-                  {shownBio}
+                  <div
+                    style={{
+                      color: currentTheme.muted,
+                      fontSize: uiScale.metaText,
+                      lineHeight: 1.5,
+                      wordBreak: "break-word",
+                    }}
+                  >
+                    {shownBio}
+                  </div>
                 </div>
-              </div>
+              </Link>
 
               <button
                 onClick={(e) => handleRecommendedFollow(e, profile.user_id)}
@@ -1306,7 +1395,7 @@ export default function Home() {
                   ? "フォロー中"
                   : "フォロー"}
               </button>
-            </Link>
+            </div>
           );
         })}
       </section>
@@ -1672,6 +1761,8 @@ export default function Home() {
             backdropFilter: "blur(14px)",
             borderBottom: `1px solid ${currentTheme.border}`,
             zIndex: 20,
+            transform: `translateY(${headerHidden ? "-100%" : "0"})`,
+            transition: "transform 0.22s ease",
           }}
         >
           <div
@@ -1852,61 +1943,95 @@ export default function Home() {
             </p>
           ) : (
             feedItems.map((item) => {
-              if (item.type === "recommended") {
-                return renderRecommendedUsersBlock(item.key);
+              if (item.type === "post") {
+                return renderPostCard(item.post);
               }
-              return renderPostCard(item.post);
+              return renderRecommendedSection(item.users, item.key);
             })
           )}
         </section>
       </div>
 
-      {composerOpen && (
+      {userEmail && (
+        <button
+          onClick={handleOpenComposer}
+          style={{
+            position: "fixed",
+            right: "12px",
+            bottom: "68px",
+            width: "58px",
+            height: "58px",
+            borderRadius: "9999px",
+            border: "none",
+            background: currentTheme.accent,
+            color: "#ffffff",
+            fontSize: "34px",
+            lineHeight: 1,
+            cursor: "pointer",
+            boxShadow: "0 10px 24px rgba(0,0,0,0.28)",
+            zIndex: 45,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            transition: "transform 0.22s ease, opacity 0.22s ease",
+            transform: `translateY(${headerHidden ? "70px" : "0"})`,
+            opacity: headerHidden ? 0.92 : 1,
+          }}
+          aria-label="投稿を作成"
+        >
+          ＋
+        </button>
+      )}
+
+      {isComposerOpen && (
         <div
-          onClick={handleCancelEdit}
+          onClick={closeComposer}
           style={{
             position: "fixed",
             inset: 0,
             background: "rgba(0,0,0,0.55)",
-            zIndex: 100,
+            zIndex: 80,
             display: "flex",
             justifyContent: "center",
-            alignItems: "flex-end",
+            alignItems: "stretch",
           }}
         >
           <div
             onClick={(e) => e.stopPropagation()}
             style={{
-              width: "min(720px, 100%)",
-              maxHeight: "88vh",
+              width: "min(720px, 100vw)",
+              minHeight: "100vh",
               background: currentTheme.background,
-              borderTopLeftRadius: "24px",
-              borderTopRightRadius: "24px",
-              borderTop: `1px solid ${currentTheme.border}`,
-              paddingBottom: "max(14px, env(safe-area-inset-bottom))",
-              boxShadow: "0 -18px 40px rgba(0,0,0,0.35)",
-              overflow: "hidden",
+              color: currentTheme.text,
+              display: "flex",
+              flexDirection: "column",
             }}
           >
             <div
               style={{
+                position: "sticky",
+                top: 0,
+                zIndex: 2,
+                background: `${currentTheme.background}f2`,
+                backdropFilter: "blur(12px)",
+                borderBottom: `1px solid ${currentTheme.border}`,
+                padding: "14px 16px",
                 display: "grid",
                 gridTemplateColumns: "1fr auto 1fr",
                 alignItems: "center",
-                padding: "14px 16px",
-                borderBottom: `1px solid ${currentTheme.border}`,
               }}
             >
               <button
-                onClick={handleCancelEdit}
+                onClick={closeComposer}
                 style={{
+                  justifySelf: "start",
                   background: "transparent",
                   border: "none",
-                  color: currentTheme.accent,
+                  color: currentTheme.text,
+                  fontSize: uiScale.actionText,
                   fontWeight: "bold",
-                  fontSize: `${uiScale.actionText}px`,
                   cursor: "pointer",
-                  justifySelf: "start",
+                  padding: 0,
                 }}
               >
                 キャンセル
@@ -1914,9 +2039,9 @@ export default function Home() {
 
               <div
                 style={{
-                  fontSize: `${uiScale.postText}px`,
-                  fontWeight: 800,
                   justifySelf: "center",
+                  fontWeight: 800,
+                  fontSize: uiScale.postText,
                 }}
               >
                 {editingId !== null ? "編集" : replyingToId !== null ? "返信" : "投稿"}
@@ -1941,9 +2066,9 @@ export default function Home() {
                       : currentTheme.accent,
                   color: "#ffffff",
                   border: "none",
-                  padding: "9px 16px",
+                  padding: "10px 16px",
                   borderRadius: "9999px",
-                  fontSize: `${uiScale.actionText}px`,
+                  fontSize: uiScale.actionText,
                   fontWeight: 800,
                   cursor:
                     !userEmail ||
@@ -1966,9 +2091,8 @@ export default function Home() {
 
             <div
               style={{
-                padding: "16px 20px 18px",
-                overflowY: "auto",
-                maxHeight: "calc(88vh - 72px)",
+                padding: "18px 20px 130px",
+                flex: 1,
               }}
             >
               {!userEmail && (
@@ -2090,7 +2214,7 @@ export default function Home() {
                     disabled={!userEmail || submitting}
                     style={{
                       width: "100%",
-                      minHeight: "180px",
+                      minHeight: "160px",
                       background: "transparent",
                       color: currentTheme.text,
                       border: "none",
@@ -2195,32 +2319,6 @@ export default function Home() {
           </div>
         </div>
       )}
-
-      <button
-        onClick={openNewComposer}
-        style={{
-          position: "fixed",
-          right: "12px",
-          bottom: "68px",
-          width: "64px",
-          height: "64px",
-          borderRadius: "9999px",
-          border: "none",
-          background: currentTheme.accent,
-          color: "#ffffff",
-          fontSize: "38px",
-          lineHeight: 1,
-          boxShadow: "0 10px 24px rgba(0,0,0,0.28)",
-          cursor: "pointer",
-          zIndex: 70,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-        aria-label="投稿する"
-      >
-        +
-      </button>
     </main>
   );
 }

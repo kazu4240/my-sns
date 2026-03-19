@@ -144,7 +144,11 @@ const navItems = [
   { href: "/dm", render: (active: boolean) => <DMIcon active={active} /> },
 ];
 
-export default function BottomNav() {
+type BottomNavProps = {
+  hidden?: boolean;
+};
+
+export default function BottomNav({ hidden = false }: BottomNavProps) {
   const pathname = usePathname();
 
   return (
@@ -153,13 +157,17 @@ export default function BottomNav() {
         position: "fixed",
         left: "50%",
         bottom: "0",
-        transform: "translateX(-50%)",
+        transform: hidden
+          ? "translateX(-50%) translateY(100%)"
+          : "translateX(-50%) translateY(0)",
         width: "min(720px, 100%)",
         zIndex: 50,
         background: "rgba(21, 32, 43, 0.96)",
         backdropFilter: "blur(12px)",
         WebkitBackdropFilter: "blur(12px)",
         borderTop: "1px solid #2f3336",
+        transition: "transform 0.22s ease",
+        willChange: "transform",
       }}
     >
       <div
