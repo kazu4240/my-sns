@@ -43,6 +43,10 @@ type NotificationInsert = {
 
 type HomeTab = "all" | "following" | "popular";
 
+type FeedItem =
+  | { type: "post"; post: Post }
+  | { type: "recommended"; key: string };
+
 const DEFAULT_BACKGROUND = "#15202b";
 const DEFAULT_CARD = "#192734";
 const DEFAULT_TEXT = "#ffffff";
@@ -183,7 +187,6 @@ function SettingsIcon({ size, color }: { size: number; color: string }) {
 }
 
 export default function Home() {
-
   const [posts, setPosts] = useState<Post[]>([]);
   const [profiles, setProfiles] = useState<Record<string, Profile>>({});
   const [followingUserIds, setFollowingUserIds] = useState<string[]>([]);
@@ -195,10 +198,12 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<HomeTab>("all");
   const [openMenuPostId, setOpenMenuPostId] = useState<number | null>(null);
   const [openSettingsMenu, setOpenSettingsMenu] = useState(false);
+  const [composerOpen, setComposerOpen] = useState(false);
 
   const [text, setText] = useState("");
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState("");
+
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -349,6 +354,28 @@ export default function Home() {
     return map;
   }, [posts]);
 
+  const feedItems = useMemo(() => {
+    const items: FeedItem[] = [];
+
+    displayedPosts.forEach((post, index) => {
+      items.push({ type: "post", post });
+
+      const shouldInsertRecommended =
+        recommendedUsers.length > 0 &&
+        index !== displayedPosts.length - 1 &&
+        (index + 1) % 10 === 0;
+
+      if (shouldInsertRecommended) {
+        items.push({
+          type: "recommended",
+          key: `recommended-${index + 1}`,
+        });
+      }
+    });
+
+    return items;
+  }, [displayedPosts, recommendedUsers]);
+
   const createNotification = async ({
     user_id,
     actor_user_id,
@@ -473,11 +500,13 @@ export default function Home() {
             (a.display_name ? 1 : 0) +
             (a.bio ? 1 : 0) +
             (a.username ? 1 : 0);
+
           const bScore =
             (b.avatar_url ? 1 : 0) +
             (b.display_name ? 1 : 0) +
             (b.bio ? 1 : 0) +
             (b.username ? 1 : 0);
+
           return bScore - aScore;
         })
         .slice(0, 5);
@@ -511,13 +540,11 @@ export default function Home() {
       setPosts(postsData);
 
       const idSet = new Set<string>();
-
       for (const post of postsData) {
         if (post.user_id) {
           idSet.add(post.user_id);
         }
       }
-
       if (currentUserId) {
         idSet.add(currentUserId);
       }
@@ -543,11 +570,9 @@ export default function Home() {
         setProfiles({});
       } else {
         const profileMap: Record<string, Profile> = {};
-
         for (const profile of profileData ?? []) {
           profileMap[profile.user_id] = profile;
         }
-
         setProfiles(profileMap);
       }
 
@@ -594,7 +619,6 @@ export default function Home() {
       const { currentId } = await checkUser();
       await fetchPostsAndProfiles(currentId);
     };
-
     init();
   }, []);
 
@@ -605,31 +629,33 @@ export default function Home() {
   }, [activeTab, userId]);
 
   useEffect(() => {
-  if (typeof window === "undefined") return;
+    if (typeof window === "undefined") return;
 
-  const params = new URLSearchParams(window.location.search);
-  const replyTo = params.get("replyTo");
-  if (!replyTo) return;
+    const params = new URLSearchParams(window.location.search);
+    const replyTo = params.get("replyTo");
+    if (!replyTo) return;
 
-  const replyId = Number(replyTo);
-  if (!Number.isFinite(replyId)) return;
+    const replyId = Number(replyTo);
+    if (!Number.isFinite(replyId)) return;
 
-  const targetPost = posts.find((post) => post.id === replyId);
-  if (!targetPost) return;
+    const targetPost = posts.find((post) => post.id === replyId);
+    if (!targetPost) return;
 
-  setEditingId(null);
-  setReplyingToId(replyId);
-  setText("");
-  setSelectedImage(null);
-  setPreviewUrl("");
+    setEditingId(null);
+    setReplyingToId(replyId);
+    setText("");
+    setSelectedImage(null);
+    setPreviewUrl("");
+    setComposerOpen(true);
 
-  params.delete("replyTo");
-  const nextSearch = params.toString();
-  const nextUrl = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ""}${window.location.hash}`;
-  window.history.replaceState({}, "", nextUrl);
-  window.scrollTo({ top: 0, behavior: "smooth" });
-}, [posts]);
+    params.delete("replyTo");
+    const nextSearch = params.toString();
+    const nextUrl = `${window.location.pathname}${
+      nextSearch ? `?${nextSearch}` : ""
+    }${window.location.hash}`;
 
+    window.history.replaceState({}, "", nextUrl);
+  }, [posts]);
 
   useEffect(() => {
     const handleWindowClick = () => {
@@ -643,7 +669,6 @@ export default function Home() {
 
   const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;
-
     setSelectedImage(file);
 
     if (file) {
@@ -676,7 +701,6 @@ export default function Home() {
     }
 
     const { data } = supabase.storage.from("post-images").getPublicUrl(filePath);
-
     return data.publicUrl;
   };
 
@@ -686,6 +710,21 @@ export default function Home() {
     setPreviewUrl("");
     setEditingId(null);
     setReplyingToId(null);
+    setComposerOpen(false);
+  };
+
+  const openNewComposer = () => {
+    if (!userEmail || !userId) {
+      alert("投稿するにはログインしてね");
+      return;
+    }
+
+    setEditingId(null);
+    setReplyingToId(null);
+    setText("");
+    setSelectedImage(null);
+    setPreviewUrl("");
+    setComposerOpen(true);
   };
 
   const handlePost = async () => {
@@ -942,7 +981,7 @@ export default function Home() {
     setSelectedImage(null);
     setPreviewUrl("");
     setOpenMenuPostId(null);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    setComposerOpen(true);
   };
 
   const handleReply = (post: Post) => {
@@ -956,7 +995,7 @@ export default function Home() {
     setText("");
     setSelectedImage(null);
     setPreviewUrl("");
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    setComposerOpen(true);
   };
 
   const handleCancelEdit = () => {
@@ -1065,7 +1104,6 @@ export default function Home() {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-
     return date.toLocaleString("ja-JP", {
       year: "numeric",
       month: "2-digit",
@@ -1133,6 +1171,147 @@ export default function Home() {
     cursor: "pointer",
     flexShrink: 0,
   } as const;
+
+  const renderRecommendedUsersBlock = (key: string) => {
+    if (recommendedUsers.length === 0) return null;
+
+    return (
+      <section
+        key={key}
+        style={{
+          borderBottom: `1px solid ${currentTheme.border}`,
+        }}
+      >
+        <div
+          style={{
+            padding: "18px 20px 12px",
+            fontSize: uiScale.postText,
+            fontWeight: "bold",
+          }}
+        >
+          おすすめユーザー
+        </div>
+
+        {recommendedUsers.map((profile) => {
+          const shownName = profile.display_name || profile.username || "ユーザー";
+          const shownBio = profile.bio || "自己紹介はまだありません";
+          const shownUsername = profile.username || "user";
+          const isFollowingRecommended = followingUserIds.includes(profile.user_id);
+          const isLoadingFollow =
+            recommendedFollowLoadingUserId === profile.user_id;
+
+          return (
+            <Link
+              key={profile.user_id}
+              href={`/users/${profile.user_id}`}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "12px",
+                padding: "14px 20px",
+                borderTop: `1px solid ${currentTheme.border}`,
+                textDecoration: "none",
+                color: currentTheme.text,
+              }}
+            >
+              {profile.avatar_url ? (
+                <img
+                  src={profile.avatar_url}
+                  alt="avatar"
+                  style={{
+                    width: uiScale.recommendedAvatar,
+                    height: uiScale.recommendedAvatar,
+                    borderRadius: "9999px",
+                    objectFit: "cover",
+                    flexShrink: 0,
+                  }}
+                />
+              ) : (
+                <div
+                  style={{
+                    width: uiScale.recommendedAvatar,
+                    height: uiScale.recommendedAvatar,
+                    borderRadius: "9999px",
+                    background: currentTheme.accent,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#ffffff",
+                    fontWeight: "bold",
+                    flexShrink: 0,
+                    fontSize: uiScale.replyText,
+                  }}
+                >
+                  {shownName.slice(0, 1).toUpperCase()}
+                </div>
+              )}
+
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div
+                  style={{
+                    fontWeight: "bold",
+                    fontSize: uiScale.replyText,
+                    marginBottom: "4px",
+                    wordBreak: "break-word",
+                  }}
+                >
+                  {shownName}
+                </div>
+
+                <div
+                  style={{
+                    color: currentTheme.muted,
+                    fontSize: uiScale.metaText,
+                    marginBottom: "4px",
+                    wordBreak: "break-word",
+                  }}
+                >
+                  @{shownUsername}
+                </div>
+
+                <div
+                  style={{
+                    color: currentTheme.muted,
+                    fontSize: uiScale.metaText,
+                    lineHeight: 1.5,
+                    wordBreak: "break-word",
+                  }}
+                >
+                  {shownBio}
+                </div>
+              </div>
+
+              <button
+                onClick={(e) => handleRecommendedFollow(e, profile.user_id)}
+                disabled={isLoadingFollow}
+                style={{
+                  background: isFollowingRecommended
+                    ? "transparent"
+                    : currentTheme.accent,
+                  color: "#ffffff",
+                  padding: "9px 14px",
+                  borderRadius: "9999px",
+                  fontSize: uiScale.actionText,
+                  fontWeight: "bold",
+                  flexShrink: 0,
+                  border: isFollowingRecommended
+                    ? `1px solid ${currentTheme.border}`
+                    : "none",
+                  cursor: isLoadingFollow ? "not-allowed" : "pointer",
+                }}
+              >
+                {isLoadingFollow
+                  ? "処理中..."
+                  : isFollowingRecommended
+                  ? "フォロー中"
+                  : "フォロー"}
+              </button>
+            </Link>
+          );
+        })}
+      </section>
+    );
+  };
 
   const renderPostCard = (post: Post, isReply = false) => {
     const isOwner = !!userId && post.user_id === userId;
@@ -1632,14 +1811,12 @@ export default function Home() {
             <button onClick={() => setActiveTab("all")} style={tabButtonStyle("all")}>
               すべて
             </button>
-
             <button
               onClick={() => setActiveTab("following")}
               style={tabButtonStyle("following")}
             >
               フォロー中
             </button>
-
             <button
               onClick={() => setActiveTab("popular")}
               style={tabButtonStyle("popular")}
@@ -1648,428 +1825,6 @@ export default function Home() {
             </button>
           </div>
         </header>
-
-        <section
-          style={{
-            padding: "16px 20px",
-            borderBottom: `1px solid ${currentTheme.border}`,
-          }}
-        >
-          {!userEmail && (
-            <div
-              style={{
-                marginBottom: "16px",
-                padding: "12px 14px",
-                borderRadius: "16px",
-                background: "rgba(255,209,102,0.10)",
-                border: "1px solid rgba(255,209,102,0.25)",
-                color: "#ffd166",
-                fontSize: uiScale.actionText,
-                fontWeight: "bold",
-              }}
-            >
-              投稿するにはログインしてね
-            </div>
-          )}
-
-          {replyTargetPost && (
-            <div
-              style={{
-                marginBottom: "14px",
-                padding: "12px 14px",
-                borderRadius: "14px",
-                border: `1px solid ${currentTheme.border}`,
-                background: "transparent",
-              }}
-            >
-              <div
-                style={{
-                  fontSize: uiScale.metaText,
-                  color: currentTheme.accent,
-                  marginBottom: "8px",
-                  fontWeight: "bold",
-                }}
-              >
-                返信先
-              </div>
-              <div
-                style={{
-                  fontWeight: "bold",
-                  marginBottom: "6px",
-                  color: currentTheme.text,
-                  fontSize: uiScale.replyText,
-                }}
-              >
-                {getDisplayName(replyTargetPost)}
-              </div>
-              <div
-                style={{
-                  color: currentTheme.softText,
-                  fontSize: uiScale.replyText,
-                  whiteSpace: "pre-wrap",
-                  lineHeight: 1.6,
-                }}
-              >
-                {replyTargetPost.content}
-              </div>
-            </div>
-          )}
-
-          <div
-            style={{
-              display: "flex",
-              gap: "14px",
-              alignItems: "flex-start",
-            }}
-          >
-            {myAvatarUrl ? (
-              <img
-                src={myAvatarUrl}
-                alt="my avatar"
-                style={{
-                  width: uiScale.composerAvatar,
-                  height: uiScale.composerAvatar,
-                  borderRadius: "9999px",
-                  objectFit: "cover",
-                  flexShrink: 0,
-                }}
-              />
-            ) : (
-              <Link
-                href="/profile"
-                style={{
-                  width: uiScale.composerAvatar,
-                  height: uiScale.composerAvatar,
-                  borderRadius: "9999px",
-                  background: currentTheme.accent,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontWeight: "bold",
-                  flexShrink: 0,
-                  color: "#ffffff",
-                  textDecoration: "none",
-                  fontSize: uiScale.postText,
-                }}
-              >
-                K
-              </Link>
-            )}
-
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <textarea
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                placeholder={
-                  userEmail
-                    ? editingId !== null
-                      ? "投稿を編集"
-                      : replyingToId !== null
-                      ? "返信を入力"
-                      : "いま何してる？"
-                    : "ログインすると投稿できる"
-                }
-                disabled={!userEmail || submitting}
-                style={{
-                  width: "100%",
-                  minHeight: "120px",
-                  background: "transparent",
-                  color: currentTheme.text,
-                  border: "none",
-                  outline: "none",
-                  resize: "none",
-                  fontSize: uiScale.textarea,
-                  lineHeight: 1.6,
-                  opacity: userEmail ? 1 : 0.5,
-                  padding: 0,
-                }}
-              />
-
-              {previewUrl && (
-                <div
-                  style={{
-                    marginTop: "12px",
-                    border: `1px solid ${currentTheme.border}`,
-                    borderRadius: "18px",
-                    overflow: "hidden",
-                    maxWidth: "100%",
-                    background: currentTheme.background,
-                  }}
-                >
-                  <img
-                    src={previewUrl}
-                    alt="preview"
-                    style={{
-                      width: "100%",
-                      maxHeight: "360px",
-                      objectFit: "cover",
-                      display: "block",
-                    }}
-                  />
-                </div>
-              )}
-
-              {editingId === null && (
-                <div style={{ marginTop: "14px" }}>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageChange}
-                    disabled={!userEmail || submitting}
-                    style={{
-                      color: currentTheme.text,
-                      fontSize: uiScale.actionText,
-                    }}
-                  />
-
-                  {selectedImage && (
-                    <div style={{ marginTop: "10px" }}>
-                      <button
-                        onClick={clearImage}
-                        type="button"
-                        style={{
-                          background: "transparent",
-                          color: "#ff6b6b",
-                          border: `1px solid ${currentTheme.border}`,
-                          padding: "8px 12px",
-                          borderRadius: "9999px",
-                          cursor: "pointer",
-                          fontSize: uiScale.actionText,
-                          fontWeight: "bold",
-                        }}
-                      >
-                        画像を外す
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  gap: "12px",
-                  marginTop: "14px",
-                  paddingTop: "14px",
-                  borderTop: `1px solid ${currentTheme.border}`,
-                  flexWrap: "wrap",
-                }}
-              >
-                <span
-                  style={{
-                    fontSize: uiScale.metaText,
-                    color: remaining < 0 ? "#ff4d4f" : currentTheme.muted,
-                    fontWeight: "bold",
-                  }}
-                >
-                  {editingId !== null
-                    ? "編集中"
-                    : replyingToId !== null
-                    ? "返信中"
-                    : `あと ${remaining} 文字`}
-                </span>
-
-                <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-                  {(editingId !== null || replyingToId !== null) && (
-                    <button
-                      onClick={handleCancelEdit}
-                      style={{
-                        background: "transparent",
-                        color: currentTheme.muted,
-                        border: `1px solid ${currentTheme.border}`,
-                        padding: "8px 12px",
-                        borderRadius: "9999px",
-                        fontSize: uiScale.actionText,
-                        fontWeight: "bold",
-                        cursor: "pointer",
-                      }}
-                    >
-                      キャンセル
-                    </button>
-                  )}
-
-                  <button
-                    onClick={handlePost}
-                    disabled={
-                      !userEmail ||
-                      (!text.trim() && !selectedImage) ||
-                      remaining < 0 ||
-                      submitting
-                    }
-                    style={{
-                      background:
-                        !userEmail ||
-                        (!text.trim() && !selectedImage) ||
-                        remaining < 0 ||
-                        submitting
-                          ? "#375a7f"
-                          : currentTheme.accent,
-                      color: "#ffffff",
-                      border: "none",
-                      padding: "9px 16px",
-                      borderRadius: "9999px",
-                      fontSize: uiScale.actionText,
-                      fontWeight: 800,
-                      cursor:
-                        !userEmail ||
-                        (!text.trim() && !selectedImage) ||
-                        remaining < 0 ||
-                        submitting
-                          ? "not-allowed"
-                          : "pointer",
-                    }}
-                  >
-                    {submitting
-                      ? "送信中..."
-                      : editingId !== null
-                      ? "更新"
-                      : replyingToId !== null
-                      ? "返信"
-                      : "投稿"}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {recommendedUsers.length > 0 && (
-          <section
-            style={{
-              borderBottom: `1px solid ${currentTheme.border}`,
-            }}
-          >
-            <div
-              style={{
-                padding: "18px 20px 12px",
-                fontSize: uiScale.postText,
-                fontWeight: "bold",
-              }}
-            >
-              おすすめユーザー
-            </div>
-
-            {recommendedUsers.map((profile) => {
-              const shownName = profile.display_name || profile.username || "ユーザー";
-              const shownBio = profile.bio || "自己紹介はまだありません";
-              const shownUsername = profile.username || "user";
-              const isFollowingRecommended = followingUserIds.includes(profile.user_id);
-              const isLoadingFollow =
-                recommendedFollowLoadingUserId === profile.user_id;
-
-              return (
-                <Link
-                  key={profile.user_id}
-                  href={`/users/${profile.user_id}`}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "12px",
-                    padding: "14px 20px",
-                    borderTop: `1px solid ${currentTheme.border}`,
-                    textDecoration: "none",
-                    color: currentTheme.text,
-                  }}
-                >
-                  {profile.avatar_url ? (
-                    <img
-                      src={profile.avatar_url}
-                      alt="avatar"
-                      style={{
-                        width: uiScale.recommendedAvatar,
-                        height: uiScale.recommendedAvatar,
-                        borderRadius: "9999px",
-                        objectFit: "cover",
-                        flexShrink: 0,
-                      }}
-                    />
-                  ) : (
-                    <div
-                      style={{
-                        width: uiScale.recommendedAvatar,
-                        height: uiScale.recommendedAvatar,
-                        borderRadius: "9999px",
-                        background: currentTheme.accent,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        color: "#ffffff",
-                        fontWeight: "bold",
-                        flexShrink: 0,
-                        fontSize: uiScale.replyText,
-                      }}
-                    >
-                      {shownName.slice(0, 1).toUpperCase()}
-                    </div>
-                  )}
-
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div
-                      style={{
-                        fontWeight: "bold",
-                        fontSize: uiScale.replyText,
-                        marginBottom: "4px",
-                        wordBreak: "break-word",
-                      }}
-                    >
-                      {shownName}
-                    </div>
-
-                    <div
-                      style={{
-                        color: currentTheme.muted,
-                        fontSize: uiScale.metaText,
-                        marginBottom: "4px",
-                        wordBreak: "break-word",
-                      }}
-                    >
-                      @{shownUsername}
-                    </div>
-
-                    <div
-                      style={{
-                        color: currentTheme.muted,
-                        fontSize: uiScale.metaText,
-                        lineHeight: 1.5,
-                        wordBreak: "break-word",
-                      }}
-                    >
-                      {shownBio}
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={(e) => handleRecommendedFollow(e, profile.user_id)}
-                    disabled={isLoadingFollow}
-                    style={{
-                      background: isFollowingRecommended
-                        ? "transparent"
-                        : currentTheme.accent,
-                      color: "#ffffff",
-                      padding: "9px 14px",
-                      borderRadius: "9999px",
-                      fontSize: uiScale.actionText,
-                      fontWeight: "bold",
-                      flexShrink: 0,
-                      border: isFollowingRecommended
-                        ? `1px solid ${currentTheme.border}`
-                        : "none",
-                      cursor: isLoadingFollow ? "not-allowed" : "pointer",
-                    }}
-                  >
-                    {isLoadingFollow
-                      ? "処理中..."
-                      : isFollowingRecommended
-                      ? "フォロー中"
-                      : "フォロー"}
-                  </button>
-                </Link>
-              );
-            })}
-          </section>
-        )}
 
         <section>
           {errorMessage && (
@@ -2096,10 +1851,376 @@ export default function Home() {
               {activeTab === "following" ? "フォロー中の投稿がまだない" : "まだ投稿がない"}
             </p>
           ) : (
-            displayedPosts.map((post) => renderPostCard(post))
+            feedItems.map((item) => {
+              if (item.type === "recommended") {
+                return renderRecommendedUsersBlock(item.key);
+              }
+              return renderPostCard(item.post);
+            })
           )}
         </section>
       </div>
+
+      {composerOpen && (
+        <div
+          onClick={handleCancelEdit}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.55)",
+            zIndex: 100,
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "flex-end",
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "min(720px, 100%)",
+              maxHeight: "88vh",
+              background: currentTheme.background,
+              borderTopLeftRadius: "24px",
+              borderTopRightRadius: "24px",
+              borderTop: `1px solid ${currentTheme.border}`,
+              paddingBottom: "max(14px, env(safe-area-inset-bottom))",
+              boxShadow: "0 -18px 40px rgba(0,0,0,0.35)",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr auto 1fr",
+                alignItems: "center",
+                padding: "14px 16px",
+                borderBottom: `1px solid ${currentTheme.border}`,
+              }}
+            >
+              <button
+                onClick={handleCancelEdit}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: currentTheme.accent,
+                  fontWeight: "bold",
+                  fontSize: `${uiScale.actionText}px`,
+                  cursor: "pointer",
+                  justifySelf: "start",
+                }}
+              >
+                キャンセル
+              </button>
+
+              <div
+                style={{
+                  fontSize: `${uiScale.postText}px`,
+                  fontWeight: 800,
+                  justifySelf: "center",
+                }}
+              >
+                {editingId !== null ? "編集" : replyingToId !== null ? "返信" : "投稿"}
+              </div>
+
+              <button
+                onClick={handlePost}
+                disabled={
+                  !userEmail ||
+                  (!text.trim() && !selectedImage) ||
+                  remaining < 0 ||
+                  submitting
+                }
+                style={{
+                  justifySelf: "end",
+                  background:
+                    !userEmail ||
+                    (!text.trim() && !selectedImage) ||
+                    remaining < 0 ||
+                    submitting
+                      ? "#375a7f"
+                      : currentTheme.accent,
+                  color: "#ffffff",
+                  border: "none",
+                  padding: "9px 16px",
+                  borderRadius: "9999px",
+                  fontSize: `${uiScale.actionText}px`,
+                  fontWeight: 800,
+                  cursor:
+                    !userEmail ||
+                    (!text.trim() && !selectedImage) ||
+                    remaining < 0 ||
+                    submitting
+                      ? "not-allowed"
+                      : "pointer",
+                }}
+              >
+                {submitting
+                  ? "送信中..."
+                  : editingId !== null
+                  ? "更新"
+                  : replyingToId !== null
+                  ? "返信"
+                  : "投稿"}
+              </button>
+            </div>
+
+            <div
+              style={{
+                padding: "16px 20px 18px",
+                overflowY: "auto",
+                maxHeight: "calc(88vh - 72px)",
+              }}
+            >
+              {!userEmail && (
+                <div
+                  style={{
+                    marginBottom: "16px",
+                    padding: "12px 14px",
+                    borderRadius: "16px",
+                    background: "rgba(255,209,102,0.10)",
+                    border: "1px solid rgba(255,209,102,0.25)",
+                    color: "#ffd166",
+                    fontSize: uiScale.actionText,
+                    fontWeight: "bold",
+                  }}
+                >
+                  投稿するにはログインしてね
+                </div>
+              )}
+
+              {replyTargetPost && (
+                <div
+                  style={{
+                    marginBottom: "14px",
+                    padding: "12px 14px",
+                    borderRadius: "14px",
+                    border: `1px solid ${currentTheme.border}`,
+                    background: "transparent",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: uiScale.metaText,
+                      color: currentTheme.accent,
+                      marginBottom: "8px",
+                      fontWeight: "bold",
+                    }}
+                  >
+                    返信先
+                  </div>
+
+                  <div
+                    style={{
+                      fontWeight: "bold",
+                      marginBottom: "6px",
+                      color: currentTheme.text,
+                      fontSize: uiScale.replyText,
+                    }}
+                  >
+                    {getDisplayName(replyTargetPost)}
+                  </div>
+
+                  <div
+                    style={{
+                      color: currentTheme.softText,
+                      fontSize: uiScale.replyText,
+                      whiteSpace: "pre-wrap",
+                      lineHeight: 1.6,
+                    }}
+                  >
+                    {replyTargetPost.content}
+                  </div>
+                </div>
+              )}
+
+              <div
+                style={{
+                  display: "flex",
+                  gap: "14px",
+                  alignItems: "flex-start",
+                }}
+              >
+                {myAvatarUrl ? (
+                  <img
+                    src={myAvatarUrl}
+                    alt="my avatar"
+                    style={{
+                      width: uiScale.composerAvatar,
+                      height: uiScale.composerAvatar,
+                      borderRadius: "9999px",
+                      objectFit: "cover",
+                      flexShrink: 0,
+                    }}
+                  />
+                ) : (
+                  <Link
+                    href="/profile"
+                    style={{
+                      width: uiScale.composerAvatar,
+                      height: uiScale.composerAvatar,
+                      borderRadius: "9999px",
+                      background: currentTheme.accent,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontWeight: "bold",
+                      flexShrink: 0,
+                      color: "#ffffff",
+                      textDecoration: "none",
+                      fontSize: uiScale.postText,
+                    }}
+                  >
+                    K
+                  </Link>
+                )}
+
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <textarea
+                    value={text}
+                    onChange={(e) => setText(e.target.value)}
+                    placeholder={
+                      userEmail
+                        ? editingId !== null
+                          ? "投稿を編集"
+                          : replyingToId !== null
+                          ? "返信を入力"
+                          : "いま何してる？"
+                        : "ログインすると投稿できる"
+                    }
+                    disabled={!userEmail || submitting}
+                    style={{
+                      width: "100%",
+                      minHeight: "180px",
+                      background: "transparent",
+                      color: currentTheme.text,
+                      border: "none",
+                      outline: "none",
+                      resize: "none",
+                      fontSize: uiScale.textarea,
+                      lineHeight: 1.6,
+                      opacity: userEmail ? 1 : 0.5,
+                      padding: 0,
+                    }}
+                  />
+
+                  {previewUrl && (
+                    <div
+                      style={{
+                        marginTop: "12px",
+                        border: `1px solid ${currentTheme.border}`,
+                        borderRadius: "18px",
+                        overflow: "hidden",
+                        maxWidth: "100%",
+                        background: currentTheme.background,
+                      }}
+                    >
+                      <img
+                        src={previewUrl}
+                        alt="preview"
+                        style={{
+                          width: "100%",
+                          maxHeight: "360px",
+                          objectFit: "cover",
+                          display: "block",
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  {editingId === null && (
+                    <div style={{ marginTop: "14px" }}>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageChange}
+                        disabled={!userEmail || submitting}
+                        style={{
+                          color: currentTheme.text,
+                          fontSize: uiScale.actionText,
+                        }}
+                      />
+
+                      {selectedImage && (
+                        <div style={{ marginTop: "10px" }}>
+                          <button
+                            onClick={clearImage}
+                            type="button"
+                            style={{
+                              background: "transparent",
+                              color: "#ff6b6b",
+                              border: `1px solid ${currentTheme.border}`,
+                              padding: "8px 12px",
+                              borderRadius: "9999px",
+                              cursor: "pointer",
+                              fontSize: uiScale.actionText,
+                              fontWeight: "bold",
+                            }}
+                          >
+                            画像を外す
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      gap: "12px",
+                      marginTop: "14px",
+                      paddingTop: "14px",
+                      borderTop: `1px solid ${currentTheme.border}`,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: uiScale.metaText,
+                        color: remaining < 0 ? "#ff4d4f" : currentTheme.muted,
+                        fontWeight: "bold",
+                      }}
+                    >
+                      {editingId !== null
+                        ? "編集中"
+                        : replyingToId !== null
+                        ? "返信中"
+                        : `あと ${remaining} 文字`}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <button
+        onClick={openNewComposer}
+        style={{
+          position: "fixed",
+          right: "20px",
+          bottom: "92px",
+          width: "64px",
+          height: "64px",
+          borderRadius: "9999px",
+          border: "none",
+          background: currentTheme.accent,
+          color: "#ffffff",
+          fontSize: "38px",
+          lineHeight: 1,
+          boxShadow: "0 10px 24px rgba(0,0,0,0.28)",
+          cursor: "pointer",
+          zIndex: 70,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+        aria-label="投稿する"
+      >
+        +
+      </button>
     </main>
   );
 }
