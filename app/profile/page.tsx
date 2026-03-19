@@ -10,7 +10,7 @@ type Profile = {
   username: string | null;
   bio: string | null;
   avatar_url: string | null;
-  header_image_url: string | null;
+  header_url: string | null;
   theme_background_color: string | null;
   theme_card_color: string | null;
   theme_text_color: string | null;
@@ -33,8 +33,8 @@ export default function ProfilePage() {
   const [avatarUrl, setAvatarUrl] = useState("");
   const [selectedAvatar, setSelectedAvatar] = useState<File | null>(null);
 
-  const [headerImageUrl, setHeaderImageUrl] = useState("");
-  const [selectedHeaderImage, setSelectedHeaderImage] = useState<File | null>(null);
+  const [headerUrl, setHeaderUrl] = useState("");
+  const [selectedHeader, setSelectedHeader] = useState<File | null>(null);
 
   const [displayName, setDisplayName] = useState("");
   const [username, setUsername] = useState("");
@@ -112,7 +112,7 @@ export default function ProfilePage() {
     const { data, error } = await supabase
       .from("profiles")
       .select(
-        "user_id, display_name, username, bio, avatar_url, header_image_url, theme_background_color, theme_card_color, theme_text_color, theme_accent_color, ui_scale"
+        "user_id, display_name, username, bio, avatar_url, header_url, theme_background_color, theme_card_color, theme_text_color, theme_accent_color, ui_scale"
       )
       .eq("user_id", user.id)
       .maybeSingle();
@@ -129,7 +129,7 @@ export default function ProfilePage() {
     setUsername(profile?.username || "");
     setBio(profile?.bio || "");
     setAvatarUrl(profile?.avatar_url || "");
-    setHeaderImageUrl(profile?.header_image_url || "");
+    setHeaderUrl(profile?.header_url || "");
     setBackgroundColor(profile?.theme_background_color || DEFAULT_BACKGROUND);
     setCardColor(profile?.theme_card_color || DEFAULT_CARD);
     setTextColor(profile?.theme_text_color || DEFAULT_TEXT);
@@ -153,13 +153,13 @@ export default function ProfilePage() {
     }
   };
 
-  const handleHeaderImageChange = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleHeaderChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;
-    setSelectedHeaderImage(file);
+    setSelectedHeader(file);
 
     if (file) {
       const preview = URL.createObjectURL(file);
-      setHeaderImageUrl(preview);
+      setHeaderUrl(preview);
     }
   };
 
@@ -167,7 +167,7 @@ export default function ProfilePage() {
     if (!selectedAvatar || !userId) return null;
 
     const fileExt = selectedAvatar.name.split(".").pop() || "png";
-    const filePath = `${userId}/${Date.now()}.${fileExt}`;
+    const filePath = `${userId}/avatar-${Date.now()}.${fileExt}`;
 
     const { error: uploadError } = await supabase.storage
       .from("avatars")
@@ -176,7 +176,7 @@ export default function ProfilePage() {
       });
 
     if (uploadError) {
-      throw new Error(uploadError.message);
+      throw new Error("アイコン画像アップロード失敗: " + uploadError.message);
     }
 
     const { data } = supabase.storage.from("avatars").getPublicUrl(filePath);
@@ -184,19 +184,19 @@ export default function ProfilePage() {
   };
 
   const uploadHeaderIfNeeded = async () => {
-    if (!selectedHeaderImage || !userId) return null;
+    if (!selectedHeader || !userId) return null;
 
-    const fileExt = selectedHeaderImage.name.split(".").pop() || "png";
-    const filePath = `${userId}/${Date.now()}.${fileExt}`;
+    const fileExt = selectedHeader.name.split(".").pop() || "png";
+    const filePath = `${userId}/header-${Date.now()}.${fileExt}`;
 
     const { error: uploadError } = await supabase.storage
       .from("headers")
-      .upload(filePath, selectedHeaderImage, {
+      .upload(filePath, selectedHeader, {
         upsert: true,
       });
 
     if (uploadError) {
-      throw new Error(uploadError.message);
+      throw new Error("ヘッダー画像アップロード失敗: " + uploadError.message);
     }
 
     const { data } = supabase.storage.from("headers").getPublicUrl(filePath);
@@ -215,9 +215,9 @@ export default function ProfilePage() {
     setUiScale("normal");
   };
 
-  const handleRemoveHeaderImage = () => {
-    setSelectedHeaderImage(null);
-    setHeaderImageUrl("");
+  const handleRemoveHeader = () => {
+    setSelectedHeader(null);
+    setHeaderUrl("");
   };
 
   const handleSave = async () => {
@@ -256,7 +256,7 @@ export default function ProfilePage() {
         .maybeSingle();
 
       if (usernameCheckError) {
-        throw new Error(usernameCheckError.message);
+        throw new Error("username確認失敗: " + usernameCheckError.message);
       }
 
       if (existingUsername) {
@@ -266,7 +266,7 @@ export default function ProfilePage() {
       }
 
       let nextAvatarUrl = avatarUrl;
-      let nextHeaderImageUrl = headerImageUrl;
+      let nextHeaderUrl = headerUrl;
 
       if (selectedAvatar) {
         const uploadedAvatarUrl = await uploadAvatarIfNeeded();
@@ -275,10 +275,10 @@ export default function ProfilePage() {
         }
       }
 
-      if (selectedHeaderImage) {
+      if (selectedHeader) {
         const uploadedHeaderUrl = await uploadHeaderIfNeeded();
         if (uploadedHeaderUrl) {
-          nextHeaderImageUrl = uploadedHeaderUrl;
+          nextHeaderUrl = uploadedHeaderUrl;
         }
       }
 
@@ -289,7 +289,7 @@ export default function ProfilePage() {
           username: cleanUsername,
           bio: cleanBio || null,
           avatar_url: nextAvatarUrl || null,
-          header_image_url: nextHeaderImageUrl || null,
+          header_url: nextHeaderUrl || null,
           theme_background_color: backgroundColor,
           theme_card_color: cardColor,
           theme_text_color: textColor,
@@ -302,18 +302,18 @@ export default function ProfilePage() {
       );
 
       if (error) {
-        alert("保存失敗: " + error.message);
-        setSaving(false);
-        return;
+        throw new Error("profiles保存失敗: " + error.message);
       }
 
       setSelectedAvatar(null);
-      setSelectedHeaderImage(null);
+      setSelectedHeader(null);
       alert("保存できた！");
       await loadProfile();
     } catch (error) {
       console.error(error);
-      alert("保存失敗");
+      const message =
+        error instanceof Error ? error.message : "不明なエラーです";
+      alert("保存失敗\n" + message);
     } finally {
       setSaving(false);
     }
@@ -443,65 +443,28 @@ export default function ProfilePage() {
           <div
             style={{
               height: "180px",
-              background: headerImageUrl
-                ? `center / cover no-repeat url(${headerImageUrl})`
+              background: headerUrl
+                ? "transparent"
                 : currentTheme.card === currentTheme.background
                 ? "linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))"
                 : currentTheme.card,
               borderBottom: `1px solid ${currentTheme.softBorder}`,
               position: "relative",
+              overflow: "hidden",
             }}
           >
-            <div
-              style={{
-                position: "absolute",
-                right: "14px",
-                bottom: "14px",
-                display: "flex",
-                gap: "10px",
-                flexWrap: "wrap",
-              }}
-            >
-              <label
+            {headerUrl && (
+              <img
+                src={headerUrl}
+                alt="header"
                 style={{
-                  background: "rgba(0,0,0,0.55)",
-                  color: "#ffffff",
-                  padding: "8px 12px",
-                  borderRadius: "9999px",
-                  fontSize: `${sizes.button}px`,
-                  fontWeight: "bold",
-                  cursor: "pointer",
-                  border: "1px solid rgba(255,255,255,0.18)",
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  display: "block",
                 }}
-              >
-                ヘッダー変更
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleHeaderImageChange}
-                  style={{ display: "none" }}
-                />
-              </label>
-
-              {headerImageUrl && (
-                <button
-                  onClick={handleRemoveHeaderImage}
-                  type="button"
-                  style={{
-                    background: "rgba(0,0,0,0.55)",
-                    color: "#ffffff",
-                    padding: "8px 12px",
-                    borderRadius: "9999px",
-                    fontSize: `${sizes.button}px`,
-                    fontWeight: "bold",
-                    cursor: "pointer",
-                    border: "1px solid rgba(255,255,255,0.18)",
-                  }}
-                >
-                  ヘッダー削除
-                </button>
-              )}
-            </div>
+              />
+            )}
           </div>
 
           <div
@@ -572,6 +535,69 @@ export default function ProfilePage() {
                 />
               </label>
             </div>
+          </div>
+        </section>
+
+        <section
+          style={{
+            padding: "0 20px 18px",
+            borderBottom: `1px solid ${currentTheme.softBorder}`,
+          }}
+        >
+          <div
+            style={{
+              fontWeight: 800,
+              fontSize: `${sizes.sectionTitle}px`,
+              marginBottom: "12px",
+              color: currentTheme.muted,
+            }}
+          >
+            ヘッダー画像
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              gap: "12px",
+              flexWrap: "wrap",
+            }}
+          >
+            <label
+              style={{
+                border: `1px solid ${currentTheme.softBorder}`,
+                color: currentTheme.text,
+                padding: "10px 14px",
+                borderRadius: "9999px",
+                fontSize: `${sizes.button}px`,
+                fontWeight: "bold",
+                cursor: "pointer",
+              }}
+            >
+              ヘッダー変更
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleHeaderChange}
+                style={{ display: "none" }}
+              />
+            </label>
+
+            <button
+              onClick={handleRemoveHeader}
+              type="button"
+              style={{
+                background: "transparent",
+                color: currentTheme.muted,
+                border: `1px solid ${currentTheme.softBorder}`,
+                padding: "10px 14px",
+                borderRadius: "9999px",
+                fontSize: `${sizes.button}px`,
+                fontWeight: "bold",
+                cursor: "pointer",
+              }}
+            >
+              ヘッダー削除
+            </button>
           </div>
         </section>
 
