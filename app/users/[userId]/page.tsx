@@ -172,6 +172,8 @@ export default function UserProfilePage() {
   const [followingUserIds, setFollowingUserIds] = useState<string[]>([]);
   const [followLoading, setFollowLoading] = useState(false);
   const [openMenuPostId, setOpenMenuPostId] = useState<number | null>(null);
+  const [followingCount, setFollowingCount] = useState(0);
+  const [followersCount, setFollowersCount] = useState(0);
 
   const theme = useMemo(() => {
     const textColor = targetProfile?.theme_text_color || DEFAULT_TEXT;
@@ -387,6 +389,22 @@ export default function UserProfilePage() {
     setBookmarkedPostIds(ids);
   };
 
+  const fetchFollowCounts = async (targetUserId: string) => {
+    const [{ count: following }, { count: followers }] = await Promise.all([
+      supabase
+        .from("follows")
+        .select("*", { count: "exact", head: true })
+        .eq("follower_user_id", targetUserId),
+      supabase
+        .from("follows")
+        .select("*", { count: "exact", head: true })
+        .eq("following_user_id", targetUserId),
+    ]);
+
+    setFollowingCount(following ?? 0);
+    setFollowersCount(followers ?? 0);
+  };
+
   const fetchPage = async () => {
     if (!userIdParam) return;
 
@@ -413,6 +431,10 @@ export default function UserProfilePage() {
 
     const target = (profileData as Profile | null) ?? null;
     setTargetProfile(target);
+
+    if (target?.user_id) {
+      await fetchFollowCounts(target.user_id);
+    }
 
     const { data: postData, error: postError } = await supabase
       .from("posts")
@@ -639,6 +661,7 @@ export default function UserProfilePage() {
         setFollowingUserIds((prev) =>
           prev.filter((id) => id !== targetProfile.user_id)
         );
+        setFollowersCount((prev) => Math.max(0, prev - 1));
       } else {
         const { error } = await supabase.from("follows").insert({
           follower_user_id: currentUserId,
@@ -652,6 +675,7 @@ export default function UserProfilePage() {
         }
 
         setFollowingUserIds((prev) => [...prev, targetProfile.user_id]);
+        setFollowersCount((prev) => prev + 1);
 
         await createNotification({
           user_id: targetProfile.user_id,
@@ -1281,6 +1305,40 @@ export default function UserProfilePage() {
                 }}
               >
                 {targetProfile.bio || "自己紹介はまだありません"}
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  gap: "18px",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  marginBottom: "4px",
+                }}
+              >
+                <Link
+                  href={`/users/${targetProfile.user_id}/following`}
+                  style={{
+                    textDecoration: "none",
+                    color: theme.text,
+                    fontSize: `${uiScale.replyText}px`,
+                  }}
+                >
+                  <span style={{ fontWeight: 800 }}>{followingCount}</span>
+                  <span style={{ color: theme.muted }}> フォロー中</span>
+                </Link>
+
+                <Link
+                  href={`/users/${targetProfile.user_id}/followers`}
+                  style={{
+                    textDecoration: "none",
+                    color: theme.text,
+                    fontSize: `${uiScale.replyText}px`,
+                  }}
+                >
+                  <span style={{ fontWeight: 800 }}>{followersCount}</span>
+                  <span style={{ color: theme.muted }}> フォロワー</span>
+                </Link>
               </div>
             </div>
           </div>
