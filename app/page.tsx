@@ -8,6 +8,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import { useSearchParams } from "next/navigation";
 import { supabase } from "../lib/supabase";
 
 type Post = {
@@ -183,6 +184,8 @@ function SettingsIcon({ size, color }: { size: number; color: string }) {
 }
 
 export default function Home() {
+  const searchParams = useSearchParams();
+
   const [posts, setPosts] = useState<Post[]>([]);
   const [profiles, setProfiles] = useState<Record<string, Profile>>({});
   const [followingUserIds, setFollowingUserIds] = useState<string[]>([]);
@@ -417,6 +420,30 @@ export default function Home() {
     setBookmarkedPostIds(ids);
   };
 
+  const fetchLikes = async (currentUserId?: string | null) => {
+    if (!currentUserId) {
+      setLikedPostIds([]);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("likes")
+      .select("post_id")
+      .eq("user_id", currentUserId);
+
+    if (error) {
+      console.error(error);
+      setLikedPostIds([]);
+      return;
+    }
+
+    const ids = (data ?? [])
+      .map((item) => item.post_id)
+      .filter((value): value is number => typeof value === "number");
+
+    setLikedPostIds(ids);
+  };
+
   const fetchRecommendedUsers = async (
     currentUserId?: string | null,
     excludedUserIds: string[] = []
@@ -470,6 +497,7 @@ export default function Home() {
 
     try {
       const followingIds = await fetchFollowingIds(currentUserId);
+      await fetchLikes(currentUserId);
 
       const { data, error } = await supabase
         .from("posts")
@@ -533,6 +561,7 @@ export default function Home() {
       setProfiles({});
       setFollowingUserIds([]);
       setBookmarkedPostIds([]);
+      setLikedPostIds([]);
       setRecommendedUsers([]);
       setErrorMessage("ホームの読み込みに失敗しました。再読み込みしてみて。");
     } finally {
@@ -576,6 +605,31 @@ export default function Home() {
       setActiveTab("all");
     }
   }, [activeTab, userId]);
+
+  useEffect(() => {
+    const replyTo = searchParams.get("replyTo");
+    if (!replyTo) return;
+
+    const replyId = Number(replyTo);
+    if (!Number.isFinite(replyId)) return;
+
+    const targetPost = posts.find((post) => post.id === replyId);
+    if (!targetPost) return;
+
+    setEditingId(null);
+    setReplyingToId(replyId);
+    setText("");
+    setSelectedImage(null);
+    setPreviewUrl("");
+
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("replyTo");
+      const nextUrl = `${url.pathname}${url.search}${url.hash}`;
+      window.history.replaceState({}, "", nextUrl);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }, [searchParams, posts]);
 
   useEffect(() => {
     const handleWindowClick = () => {
@@ -742,39 +796,74 @@ export default function Home() {
     }
 
     const alreadyLiked = likedPostIds.includes(post.id);
-    const nextLikes = alreadyLiked
-      ? Math.max(0, post.likes - 1)
-      : post.likes + 1;
 
-    const { error } = await supabase
+    if (alreadyLiked) {
+      const { error: likeDeleteError } = await supabase
+        .from("likes")
+        .delete()
+        .eq("user_id", userId)
+        .eq("post_id", post.id);
+
+      if (likeDeleteError) {
+        alert("いいね解除失敗: " + likeDeleteError.message);
+        return;
+      }
+
+      const nextLikes = Math.max(0, post.likes - 1);
+      const { error: postUpdateError } = await supabase
+        .from("posts")
+        .update({ likes: nextLikes })
+        .eq("id", post.id);
+
+      if (postUpdateError) {
+        alert("投稿更新失敗: " + postUpdateError.message);
+        return;
+      }
+
+      setLikedPostIds((prev) => prev.filter((id) => id !== post.id));
+      setPosts((prev) =>
+        prev.map((item) =>
+          item.id === post.id ? { ...item, likes: nextLikes } : item
+        )
+      );
+      return;
+    }
+
+    const { error: likeInsertError } = await supabase.from("likes").insert({
+      user_id: userId,
+      post_id: post.id,
+    });
+
+    if (likeInsertError) {
+      alert("いいね失敗: " + likeInsertError.message);
+      return;
+    }
+
+    const nextLikes = post.likes + 1;
+    const { error: postUpdateError } = await supabase
       .from("posts")
       .update({ likes: nextLikes })
       .eq("id", post.id);
 
-    if (error) {
-      alert("いいね失敗: " + error.message);
+    if (postUpdateError) {
+      alert("投稿更新失敗: " + postUpdateError.message);
       return;
     }
 
+    setLikedPostIds((prev) => [...prev, post.id]);
     setPosts((prev) =>
       prev.map((item) =>
         item.id === post.id ? { ...item, likes: nextLikes } : item
       )
     );
 
-    if (alreadyLiked) {
-      setLikedPostIds((prev) => prev.filter((id) => id !== post.id));
-    } else {
-      setLikedPostIds((prev) => [...prev, post.id]);
-
-      if (post.user_id && post.user_id !== userId) {
-        await createNotification({
-          user_id: post.user_id,
-          actor_user_id: userId,
-          type: "like",
-          post_id: post.id,
-        });
-      }
+    if (post.user_id) {
+      await createNotification({
+        user_id: post.user_id,
+        actor_user_id: userId,
+        type: "like",
+        post_id: post.id,
+      });
     }
   };
 
@@ -872,6 +961,13 @@ export default function Home() {
 
   const handleCancelEdit = () => {
     resetComposer();
+
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("replyTo");
+      const nextUrl = `${url.pathname}${url.search}${url.hash}`;
+      window.history.replaceState({}, "", nextUrl);
+    }
   };
 
   const handleLogout = async () => {
