@@ -10,6 +10,7 @@ type Profile = {
   username: string | null;
   bio: string | null;
   avatar_url: string | null;
+  header_image_url: string | null;
   theme_background_color: string | null;
   theme_card_color: string | null;
   theme_text_color: string | null;
@@ -28,8 +29,12 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
 
   const [userId, setUserId] = useState<string | null>(null);
+
   const [avatarUrl, setAvatarUrl] = useState("");
   const [selectedAvatar, setSelectedAvatar] = useState<File | null>(null);
+
+  const [headerImageUrl, setHeaderImageUrl] = useState("");
+  const [selectedHeaderImage, setSelectedHeaderImage] = useState<File | null>(null);
 
   const [displayName, setDisplayName] = useState("");
   const [username, setUsername] = useState("");
@@ -59,7 +64,6 @@ export default function ProfilePage() {
         pageTitle: 24,
         sectionTitle: 15,
         label: 16,
-        value: 15,
         helper: 12,
         avatar: 92,
         button: 14,
@@ -72,7 +76,6 @@ export default function ProfilePage() {
         pageTitle: 32,
         sectionTitle: 18,
         label: 18,
-        value: 17,
         helper: 14,
         avatar: 112,
         button: 16,
@@ -84,7 +87,6 @@ export default function ProfilePage() {
       pageTitle: 28,
       sectionTitle: 16,
       label: 17,
-      value: 16,
       helper: 13,
       avatar: 100,
       button: 15,
@@ -110,7 +112,7 @@ export default function ProfilePage() {
     const { data, error } = await supabase
       .from("profiles")
       .select(
-        "user_id, display_name, username, bio, avatar_url, theme_background_color, theme_card_color, theme_text_color, theme_accent_color, ui_scale"
+        "user_id, display_name, username, bio, avatar_url, header_image_url, theme_background_color, theme_card_color, theme_text_color, theme_accent_color, ui_scale"
       )
       .eq("user_id", user.id)
       .maybeSingle();
@@ -127,6 +129,7 @@ export default function ProfilePage() {
     setUsername(profile?.username || "");
     setBio(profile?.bio || "");
     setAvatarUrl(profile?.avatar_url || "");
+    setHeaderImageUrl(profile?.header_image_url || "");
     setBackgroundColor(profile?.theme_background_color || DEFAULT_BACKGROUND);
     setCardColor(profile?.theme_card_color || DEFAULT_CARD);
     setTextColor(profile?.theme_text_color || DEFAULT_TEXT);
@@ -150,6 +153,16 @@ export default function ProfilePage() {
     }
   };
 
+  const handleHeaderImageChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null;
+    setSelectedHeaderImage(file);
+
+    if (file) {
+      const preview = URL.createObjectURL(file);
+      setHeaderImageUrl(preview);
+    }
+  };
+
   const uploadAvatarIfNeeded = async () => {
     if (!selectedAvatar || !userId) return null;
 
@@ -170,6 +183,26 @@ export default function ProfilePage() {
     return data.publicUrl;
   };
 
+  const uploadHeaderIfNeeded = async () => {
+    if (!selectedHeaderImage || !userId) return null;
+
+    const fileExt = selectedHeaderImage.name.split(".").pop() || "png";
+    const filePath = `${userId}/${Date.now()}.${fileExt}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("headers")
+      .upload(filePath, selectedHeaderImage, {
+        upsert: true,
+      });
+
+    if (uploadError) {
+      throw new Error(uploadError.message);
+    }
+
+    const { data } = supabase.storage.from("headers").getPublicUrl(filePath);
+    return data.publicUrl;
+  };
+
   const normalizeUsername = (value: string) => {
     return value.trim().toLowerCase().replace(/^@+/, "");
   };
@@ -180,6 +213,11 @@ export default function ProfilePage() {
     setTextColor(DEFAULT_TEXT);
     setAccentColor(DEFAULT_ACCENT);
     setUiScale("normal");
+  };
+
+  const handleRemoveHeaderImage = () => {
+    setSelectedHeaderImage(null);
+    setHeaderImageUrl("");
   };
 
   const handleSave = async () => {
@@ -228,11 +266,19 @@ export default function ProfilePage() {
       }
 
       let nextAvatarUrl = avatarUrl;
+      let nextHeaderImageUrl = headerImageUrl;
 
       if (selectedAvatar) {
         const uploadedAvatarUrl = await uploadAvatarIfNeeded();
         if (uploadedAvatarUrl) {
           nextAvatarUrl = uploadedAvatarUrl;
+        }
+      }
+
+      if (selectedHeaderImage) {
+        const uploadedHeaderUrl = await uploadHeaderIfNeeded();
+        if (uploadedHeaderUrl) {
+          nextHeaderImageUrl = uploadedHeaderUrl;
         }
       }
 
@@ -243,6 +289,7 @@ export default function ProfilePage() {
           username: cleanUsername,
           bio: cleanBio || null,
           avatar_url: nextAvatarUrl || null,
+          header_image_url: nextHeaderImageUrl || null,
           theme_background_color: backgroundColor,
           theme_card_color: cardColor,
           theme_text_color: textColor,
@@ -261,6 +308,7 @@ export default function ProfilePage() {
       }
 
       setSelectedAvatar(null);
+      setSelectedHeaderImage(null);
       alert("保存できた！");
       await loadProfile();
     } catch (error) {
@@ -395,14 +443,66 @@ export default function ProfilePage() {
           <div
             style={{
               height: "180px",
-              background:
-                currentTheme.card === currentTheme.background
-                  ? "linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))"
-                  : currentTheme.card,
+              background: headerImageUrl
+                ? `center / cover no-repeat url(${headerImageUrl})`
+                : currentTheme.card === currentTheme.background
+                ? "linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))"
+                : currentTheme.card,
               borderBottom: `1px solid ${currentTheme.softBorder}`,
               position: "relative",
             }}
-          />
+          >
+            <div
+              style={{
+                position: "absolute",
+                right: "14px",
+                bottom: "14px",
+                display: "flex",
+                gap: "10px",
+                flexWrap: "wrap",
+              }}
+            >
+              <label
+                style={{
+                  background: "rgba(0,0,0,0.55)",
+                  color: "#ffffff",
+                  padding: "8px 12px",
+                  borderRadius: "9999px",
+                  fontSize: `${sizes.button}px`,
+                  fontWeight: "bold",
+                  cursor: "pointer",
+                  border: "1px solid rgba(255,255,255,0.18)",
+                }}
+              >
+                ヘッダー変更
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleHeaderImageChange}
+                  style={{ display: "none" }}
+                />
+              </label>
+
+              {headerImageUrl && (
+                <button
+                  onClick={handleRemoveHeaderImage}
+                  type="button"
+                  style={{
+                    background: "rgba(0,0,0,0.55)",
+                    color: "#ffffff",
+                    padding: "8px 12px",
+                    borderRadius: "9999px",
+                    fontSize: `${sizes.button}px`,
+                    fontWeight: "bold",
+                    cursor: "pointer",
+                    border: "1px solid rgba(255,255,255,0.18)",
+                  }}
+                >
+                  ヘッダー削除
+                </button>
+              )}
+            </div>
+          </div>
 
           <div
             style={{

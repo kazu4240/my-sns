@@ -22,6 +22,7 @@ type Profile = {
   username: string | null;
   bio: string | null;
   avatar_url: string | null;
+  header_image_url: string | null;
   theme_background_color: string | null;
   theme_card_color: string | null;
   theme_text_color: string | null;
@@ -418,7 +419,7 @@ export default function UserProfilePage() {
     const { data: profileData, error: profileError } = await supabase
       .from("profiles")
       .select(
-        "user_id, display_name, username, bio, avatar_url, theme_background_color, theme_card_color, theme_text_color, theme_accent_color, ui_scale"
+        "user_id, display_name, username, bio, avatar_url, header_image_url, theme_background_color, theme_card_color, theme_text_color, theme_accent_color, ui_scale"
       )
       .eq("user_id", userIdParam)
       .maybeSingle();
@@ -463,7 +464,7 @@ export default function UserProfilePage() {
       const { data: profileList, error: profileListError } = await supabase
         .from("profiles")
         .select(
-          "user_id, display_name, username, bio, avatar_url, theme_background_color, theme_card_color, theme_text_color, theme_accent_color, ui_scale"
+          "user_id, display_name, username, bio, avatar_url, header_image_url, theme_background_color, theme_card_color, theme_text_color, theme_accent_color, ui_scale"
         )
         .in("user_id", ids);
 
@@ -1187,10 +1188,11 @@ export default function UserProfilePage() {
           <div
             style={{
               height: "180px",
-              background:
-                theme.card === theme.background
-                  ? "linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))"
-                  : theme.card,
+              background: targetProfile.header_image_url
+                ? `center / cover no-repeat url(${targetProfile.header_image_url})`
+                : theme.card === theme.background
+                ? "linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))"
+                : theme.card,
               borderBottom: `1px solid ${theme.border}`,
             }}
           />
