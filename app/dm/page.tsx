@@ -25,28 +25,10 @@ type DirectMessage = {
   created_at: string;
 };
 
-type DmPin = {
-  id: number;
-  user_id: string;
-  target_user_id: string;
-  created_at: string;
-};
-
-type DmNote = {
-  id: number;
-  user_id: string;
-  target_user_id: string;
-  note: string | null;
-  created_at: string;
-  updated_at: string;
-};
-
 type ConversationItem = {
   userId: string;
   profile: Profile | null;
   latestMessage: DirectMessage;
-  pinned: boolean;
-  note: string;
 };
 
 const DEFAULT_BACKGROUND = "#15202b";
@@ -55,76 +37,12 @@ const DEFAULT_TEXT = "#ffffff";
 const DEFAULT_ACCENT = "#1d9bf0";
 const DEFAULT_BORDER = "#2f3336";
 
-function PinIcon({ active, color }: { active: boolean; color: string }) {
-  return (
-    <svg
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden="true"
-      style={{ display: "block" }}
-    >
-      <path
-        d="M14 3L21 10L17.5 11.5L13.5 15.5V21L10.5 18L8.5 16L3 18L8 13L12 9L14 3Z"
-        fill={active ? color : "none"}
-        stroke={color}
-        strokeWidth="1.9"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M10 18L6 22"
-        stroke={color}
-        strokeWidth="1.9"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
-
-function NoteIcon({ color }: { color: string }) {
-  return (
-    <svg
-      width="19"
-      height="19"
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden="true"
-      style={{ display: "block" }}
-    >
-      <path
-        d="M7 4.5H17C17.8284 4.5 18.5 5.17157 18.5 6V18L14.5 15.5L10.5 18L7 15.8V6C7 5.17157 7.67157 4.5 8.5 4.5"
-        stroke={color}
-        strokeWidth="1.8"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M10 8H15"
-        stroke={color}
-        strokeWidth="1.8"
-        strokeLinecap="round"
-      />
-      <path
-        d="M10 11.5H15"
-        stroke={color}
-        strokeWidth="1.8"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
 export default function DMPage() {
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [searchText, setSearchText] = useState("");
   const [messages, setMessages] = useState<DirectMessage[]>([]);
   const [profiles, setProfiles] = useState<Record<string, Profile>>({});
-  const [pins, setPins] = useState<Record<string, boolean>>({});
-  const [notes, setNotes] = useState<Record<string, string>>({});
-  const [pinLoadingUserId, setPinLoadingUserId] = useState<string | null>(null);
-  const [noteLoadingUserId, setNoteLoadingUserId] = useState<string | null>(null);
 
   const currentTheme = useMemo(() => {
     if (!userId || !profiles[userId]) {
@@ -170,8 +88,6 @@ export default function DMPage() {
     if (!currentUserId) {
       setMessages([]);
       setProfiles({});
-      setPins({});
-      setNotes({});
       setLoading(false);
       return;
     }
@@ -179,7 +95,7 @@ export default function DMPage() {
     setLoading(true);
 
     try {
-      const [sentRes, receivedRes, pinRes, noteRes] = await Promise.all([
+      const [sentRes, receivedRes] = await Promise.all([
         supabase
           .from("direct_messages")
           .select("id, sender_user_id, receiver_user_id, content, created_at")
@@ -189,22 +105,14 @@ export default function DMPage() {
           .from("direct_messages")
           .select("id, sender_user_id, receiver_user_id, content, created_at")
           .eq("receiver_user_id", currentUserId),
-
-        supabase
-          .from("dm_pins")
-          .select("id, user_id, target_user_id, created_at")
-          .eq("user_id", currentUserId),
-
-        supabase
-          .from("dm_notes")
-          .select("id, user_id, target_user_id, note, created_at, updated_at")
-          .eq("user_id", currentUserId),
       ]);
 
-      if (sentRes.error) console.error("sent direct_messages取得失敗:", sentRes.error);
-      if (receivedRes.error) console.error("received direct_messages取得失敗:", receivedRes.error);
-      if (pinRes.error) console.error("dm_pins取得失敗:", pinRes.error);
-      if (noteRes.error) console.error("dm_notes取得失敗:", noteRes.error);
+      if (sentRes.error) {
+        console.error("sent direct_messages取得失敗:", sentRes.error);
+      }
+      if (receivedRes.error) {
+        console.error("received direct_messages取得失敗:", receivedRes.error);
+      }
 
       const mergedMessages = [
         ...((sentRes.data ?? []) as DirectMessage[]),
@@ -254,32 +162,10 @@ export default function DMPage() {
       } else {
         setProfiles({});
       }
-
-      if (!pinRes.error) {
-        const nextPins: Record<string, boolean> = {};
-        for (const pin of (pinRes.data ?? []) as DmPin[]) {
-          nextPins[pin.target_user_id] = true;
-        }
-        setPins(nextPins);
-      } else {
-        setPins({});
-      }
-
-      if (!noteRes.error) {
-        const nextNotes: Record<string, string> = {};
-        for (const note of (noteRes.data ?? []) as DmNote[]) {
-          nextNotes[note.target_user_id] = note.note || "";
-        }
-        setNotes(nextNotes);
-      } else {
-        setNotes({});
-      }
     } catch (error) {
       console.error("DM一覧取得失敗:", error);
       setMessages([]);
       setProfiles({});
-      setPins({});
-      setNotes({});
     } finally {
       setLoading(false);
     }
@@ -352,24 +238,17 @@ export default function DMPage() {
         userId: partnerId,
         profile: profiles[partnerId] ?? null,
         latestMessage,
-        pinned: !!pins[partnerId],
-        note: notes[partnerId] || "",
       })
     );
 
-    list.sort((a, b) => {
-      if (a.pinned !== b.pinned) {
-        return a.pinned ? -1 : 1;
-      }
-
-      return (
+    list.sort(
+      (a, b) =>
         new Date(b.latestMessage.created_at).getTime() -
         new Date(a.latestMessage.created_at).getTime()
-      );
-    });
+    );
 
     return list;
-  }, [messages, profiles, pins, notes, userId]);
+  }, [messages, profiles, userId]);
 
   const filteredConversationList = useMemo(() => {
     const keyword = searchText.trim().toLowerCase();
@@ -380,13 +259,11 @@ export default function DMPage() {
       const displayName = item.profile?.display_name?.toLowerCase() ?? "";
       const username = item.profile?.username?.toLowerCase() ?? "";
       const content = item.latestMessage.content?.toLowerCase() ?? "";
-      const note = item.note.toLowerCase();
 
       return (
         displayName.includes(keyword) ||
         username.includes(keyword) ||
-        content.includes(keyword) ||
-        note.includes(keyword)
+        content.includes(keyword)
       );
     });
   }, [conversationList, searchText]);
@@ -416,105 +293,13 @@ export default function DMPage() {
     return "ユーザー";
   };
 
+  const getShownUsername = (item: ConversationItem) => {
+    if (item.profile?.username) return item.profile.username;
+    return "user";
+  };
+
   const getShownAvatar = (item: ConversationItem) => {
     return item.profile?.avatar_url || null;
-  };
-
-  const handleTogglePin = async (targetUserId: string) => {
-    if (!userId) return;
-
-    const isPinned = !!pins[targetUserId];
-    setPinLoadingUserId(targetUserId);
-
-    try {
-      if (isPinned) {
-        const { error } = await supabase
-          .from("dm_pins")
-          .delete()
-          .eq("user_id", userId)
-          .eq("target_user_id", targetUserId);
-
-        if (error) {
-          alert("ピン解除失敗: " + error.message);
-          return;
-        }
-
-        setPins((prev) => {
-          const next = { ...prev };
-          delete next[targetUserId];
-          return next;
-        });
-      } else {
-        const { error } = await supabase.from("dm_pins").insert({
-          user_id: userId,
-          target_user_id: targetUserId,
-        });
-
-        if (error) {
-          alert("ピン留め失敗: " + error.message);
-          return;
-        }
-
-        setPins((prev) => ({ ...prev, [targetUserId]: true }));
-      }
-    } finally {
-      setPinLoadingUserId(null);
-    }
-  };
-
-  const handleEditNote = async (targetUserId: string) => {
-    if (!userId) return;
-
-    const currentNote = notes[targetUserId] || "";
-    const nextNote = window.prompt("メモを入力してね", currentNote);
-
-    if (nextNote === null) return;
-
-    setNoteLoadingUserId(targetUserId);
-
-    try {
-      if (!nextNote.trim()) {
-        const { error } = await supabase
-          .from("dm_notes")
-          .delete()
-          .eq("user_id", userId)
-          .eq("target_user_id", targetUserId);
-
-        if (error) {
-          alert("メモ削除失敗: " + error.message);
-          return;
-        }
-
-        setNotes((prev) => {
-          const next = { ...prev };
-          delete next[targetUserId];
-          return next;
-        });
-
-        return;
-      }
-
-      const { error } = await supabase.from("dm_notes").upsert(
-        {
-          user_id: userId,
-          target_user_id: targetUserId,
-          note: nextNote.trim(),
-          updated_at: new Date().toISOString(),
-        },
-        {
-          onConflict: "user_id,target_user_id",
-        }
-      );
-
-      if (error) {
-        alert("メモ保存失敗: " + error.message);
-        return;
-      }
-
-      setNotes((prev) => ({ ...prev, [targetUserId]: nextNote.trim() }));
-    } finally {
-      setNoteLoadingUserId(null);
-    }
   };
 
   if (loading) {
@@ -632,8 +417,9 @@ export default function DMPage() {
             </div>
           ) : (
             filteredConversationList.map((item) => (
-              <div
+              <Link
                 key={item.userId}
+                href={`/dm/${item.userId}`}
                 style={{
                   display: "flex",
                   gap: "14px",
@@ -641,173 +427,105 @@ export default function DMPage() {
                   padding: "14px 18px",
                   borderBottom: `1px solid ${currentTheme.border}`,
                   background: currentTheme.background,
+                  textDecoration: "none",
+                  color: currentTheme.text,
                 }}
               >
-                <Link
-                  href={`/dm/${item.userId}`}
-                  style={{
-                    display: "flex",
-                    gap: "14px",
-                    alignItems: "center",
-                    flex: 1,
-                    minWidth: 0,
-                    textDecoration: "none",
-                    color: currentTheme.text,
-                  }}
-                >
-                  {getShownAvatar(item) ? (
-                    <img
-                      src={getShownAvatar(item)!}
-                      alt="avatar"
+                {getShownAvatar(item) ? (
+                  <img
+                    src={getShownAvatar(item)!}
+                    alt="avatar"
+                    style={{
+                      width: "56px",
+                      height: "56px",
+                      borderRadius: "9999px",
+                      objectFit: "cover",
+                      flexShrink: 0,
+                      display: "block",
+                    }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      width: "56px",
+                      height: "56px",
+                      borderRadius: "9999px",
+                      background: currentTheme.accent,
+                      color: "#ffffff",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontWeight: 800,
+                      fontSize: "20px",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {getShownName(item).slice(0, 1).toUpperCase()}
+                  </div>
+                )}
+
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      marginBottom: "4px",
+                    }}
+                  >
+                    <span
                       style={{
-                        width: "56px",
-                        height: "56px",
-                        borderRadius: "9999px",
-                        objectFit: "cover",
-                        flexShrink: 0,
-                        display: "block",
-                      }}
-                    />
-                  ) : (
-                    <div
-                      style={{
-                        width: "56px",
-                        height: "56px",
-                        borderRadius: "9999px",
-                        background: currentTheme.accent,
-                        color: "#ffffff",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
                         fontWeight: 800,
-                        fontSize: "20px",
-                        flexShrink: 0,
-                      }}
-                    >
-                      {getShownName(item).slice(0, 1).toUpperCase()}
-                    </div>
-                  )}
-
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "8px",
-                        marginBottom: "4px",
-                      }}
-                    >
-                      <span
-                        style={{
-                          fontWeight: 800,
-                          fontSize: "18px",
-                          color: currentTheme.text,
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {getShownName(item)}
-                      </span>
-
-                      <span
-                        style={{
-                          marginLeft: "auto",
-                          color: currentTheme.muted,
-                          fontSize: "13px",
-                          flexShrink: 0,
-                        }}
-                      >
-                        {formatTime(item.latestMessage.created_at)}
-                      </span>
-                    </div>
-
-                    {item.note && (
-                      <div
-                        style={{
-                          color: currentTheme.accent,
-                          fontSize: "13px",
-                          marginBottom: "4px",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        メモ: {item.note}
-                      </div>
-                    )}
-
-                    <div
-                      style={{
-                        color: currentTheme.muted,
-                        fontSize: "15px",
-                        lineHeight: 1.4,
+                        fontSize: "18px",
+                        color: currentTheme.text,
                         overflow: "hidden",
                         textOverflow: "ellipsis",
                         whiteSpace: "nowrap",
                       }}
                     >
-                      {item.latestMessage.content || "メッセージ"}
-                    </div>
+                      {getShownName(item)}
+                    </span>
+
+                    <span
+                      style={{
+                        marginLeft: "auto",
+                        color: currentTheme.muted,
+                        fontSize: "13px",
+                        flexShrink: 0,
+                      }}
+                    >
+                      {formatTime(item.latestMessage.created_at)}
+                    </span>
                   </div>
-                </Link>
 
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "10px",
-                    flexShrink: 0,
-                  }}
-                >
-                  <button
-                    onClick={() => handleTogglePin(item.userId)}
-                    disabled={pinLoadingUserId === item.userId}
-                    title={item.pinned ? "ピン解除" : "ピン留め"}
+                  <div
                     style={{
-                      width: "42px",
-height: "42px",
-border: `1px solid ${item.pinned ? currentTheme.accent : currentTheme.border}`,
-background: item.pinned ? "rgba(29,155,240,0.10)" : "transparent",
-boxShadow: item.pinned ? "0 0 0 1px rgba(29,155,240,0.06) inset" : "none",
-
-                      color: item.pinned ? currentTheme.accent : currentTheme.muted,
-                      borderRadius: "9999px",
-                      cursor:
-                        pinLoadingUserId === item.userId ? "not-allowed" : "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <PinIcon
-                      active={item.pinned}
-                      color={item.pinned ? currentTheme.accent : currentTheme.muted}
-                    />
-                  </button>
-
-                  <button
-                    onClick={() => handleEditNote(item.userId)}
-                    disabled={noteLoadingUserId === item.userId}
-                    title="メモ"
-                    style={{
-                      width: "44px",
-                      height: "44px",
-                      border: `1px solid ${currentTheme.border}`,
-                      background: "transparent",
                       color: currentTheme.muted,
-                      borderRadius: "9999px",
-                      cursor:
-                        noteLoadingUserId === item.userId ? "not-allowed" : "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
+                      fontSize: "15px",
+                      lineHeight: 1.4,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                      marginBottom: "2px",
                     }}
                   >
-                    <NoteIcon color={currentTheme.muted} />
-                  </button>
+                    @{getShownUsername(item)}
+                  </div>
+
+                  <div
+                    style={{
+                      color: currentTheme.muted,
+                      fontSize: "15px",
+                      lineHeight: 1.4,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {item.latestMessage.content || "メッセージ"}
+                  </div>
                 </div>
-              </div>
+              </Link>
             ))
           )}
         </section>
