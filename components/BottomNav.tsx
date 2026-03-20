@@ -173,7 +173,7 @@ export default function BottomNav() {
       style={{
         position: "fixed",
         left: "50%",
-        bottom: "12px",
+        bottom: "0",
         transform: hidden
           ? "translateX(-50%) translateY(110%)"
           : "translateX(-50%) translateY(0)",
@@ -192,7 +192,7 @@ export default function BottomNav() {
           display: "grid",
           gridTemplateColumns: "repeat(5, 1fr)",
           alignItems: "center",
-          height: "76px",
+          height: "56px",
           paddingBottom: "env(safe-area-inset-bottom)",
         }}
       >
@@ -214,7 +214,7 @@ export default function BottomNav() {
                 height: "100%",
                 color: isActive ? "#ffffff" : "#8899a6",
                 opacity: 1,
-                transform: "translateY(-7px)",
+                transform: "translateY(-10px)",
               }}
             >
               {item.render(isActive)}
