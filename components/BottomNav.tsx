@@ -192,7 +192,7 @@ export default function BottomNav() {
           display: "grid",
           gridTemplateColumns: "repeat(5, 1fr)",
           alignItems: "center",
-          height: "56px",
+          height: "60px",
           paddingBottom: "env(safe-area-inset-bottom)",
         }}
       >
@@ -214,7 +214,7 @@ export default function BottomNav() {
                 height: "100%",
                 color: isActive ? "#ffffff" : "#8899a6",
                 opacity: 1,
-                transform: "translateY(-10px)",
+                transform: "translateY(-18px)",
               }}
             >
               {item.render(isActive)}
