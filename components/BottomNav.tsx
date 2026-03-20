@@ -173,7 +173,7 @@ export default function BottomNav() {
       style={{
         position: "fixed",
         left: "50%",
-        bottom: "12px",
+        bottom: "0",
         transform: hidden
           ? "translateX(-50%) translateY(110%)"
           : "translateX(-50%) translateY(0)",
