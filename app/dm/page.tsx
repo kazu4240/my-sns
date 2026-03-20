@@ -4,14 +4,6 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 
-type Message = {
-  id: number;
-  sender_id: string;
-  receiver_id: string;
-  content: string;
-  created_at: string;
-};
-
 type Profile = {
   user_id: string;
   display_name: string | null;
@@ -23,6 +15,14 @@ type Profile = {
   theme_text_color: string | null;
   theme_accent_color: string | null;
   ui_scale: string | null;
+};
+
+type DirectMessage = {
+  id: number;
+  sender_user_id: string;
+  receiver_user_id: string;
+  content: string;
+  created_at: string;
 };
 
 type DmPin = {
@@ -44,7 +44,7 @@ type DmNote = {
 type ConversationItem = {
   userId: string;
   profile: Profile | null;
-  latestMessage: Message;
+  latestMessage: DirectMessage;
   pinned: boolean;
   note: string;
 };
@@ -117,7 +117,7 @@ export default function DMPage() {
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [searchText, setSearchText] = useState("");
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<DirectMessage[]>([]);
   const [profiles, setProfiles] = useState<Record<string, Profile>>({});
   const [pins, setPins] = useState<Record<string, boolean>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
@@ -133,7 +133,6 @@ export default function DMPage() {
         accent: DEFAULT_ACCENT,
         border: DEFAULT_BORDER,
         muted: "#8899a6",
-        softText: "#cfd9de",
       };
     }
 
@@ -147,7 +146,6 @@ export default function DMPage() {
       accent: me.theme_accent_color || DEFAULT_ACCENT,
       border: DEFAULT_BORDER,
       muted: textColor === "#000000" ? "#555555" : "#8899a6",
-      softText: textColor === "#000000" ? "#444444" : "#cfd9de",
     };
   }, [profiles, userId]);
 
@@ -181,14 +179,14 @@ export default function DMPage() {
     try {
       const [sentRes, receivedRes, pinRes, noteRes] = await Promise.all([
         supabase
-          .from("messages")
-          .select("id, sender_id, receiver_id, content, created_at")
-          .eq("sender_id", currentUserId),
+          .from("direct_messages")
+          .select("id, sender_user_id, receiver_user_id, content, created_at")
+          .eq("sender_user_id", currentUserId),
 
         supabase
-          .from("messages")
-          .select("id, sender_id, receiver_id, content, created_at")
-          .eq("receiver_id", currentUserId),
+          .from("direct_messages")
+          .select("id, sender_user_id, receiver_user_id, content, created_at")
+          .eq("receiver_user_id", currentUserId),
 
         supabase
           .from("dm_pins")
@@ -201,17 +199,17 @@ export default function DMPage() {
           .eq("user_id", currentUserId),
       ]);
 
-      if (sentRes.error) console.error("sent messages取得失敗:", sentRes.error);
-      if (receivedRes.error) console.error("received messages取得失敗:", receivedRes.error);
+      if (sentRes.error) console.error("sent direct_messages取得失敗:", sentRes.error);
+      if (receivedRes.error) console.error("received direct_messages取得失敗:", receivedRes.error);
       if (pinRes.error) console.error("dm_pins取得失敗:", pinRes.error);
       if (noteRes.error) console.error("dm_notes取得失敗:", noteRes.error);
 
       const mergedMessages = [
-        ...((sentRes.data ?? []) as Message[]),
-        ...((receivedRes.data ?? []) as Message[]),
+        ...((sentRes.data ?? []) as DirectMessage[]),
+        ...((receivedRes.data ?? []) as DirectMessage[]),
       ];
 
-      const uniqueMessageMap = new Map<number, Message>();
+      const uniqueMessageMap = new Map<number, DirectMessage>();
       for (const message of mergedMessages) {
         uniqueMessageMap.set(message.id, message);
       }
@@ -227,8 +225,8 @@ export default function DMPage() {
       userIds.add(currentUserId);
 
       for (const message of loadedMessages) {
-        userIds.add(message.sender_id);
-        userIds.add(message.receiver_id);
+        userIds.add(message.sender_user_id);
+        userIds.add(message.receiver_user_id);
       }
 
       const ids = Array.from(userIds);
@@ -330,11 +328,13 @@ export default function DMPage() {
   const conversationList = useMemo(() => {
     if (!userId) return [];
 
-    const latestMap = new Map<string, Message>();
+    const latestMap = new Map<string, DirectMessage>();
 
     for (const message of messages) {
       const partnerId =
-        message.sender_id === userId ? message.receiver_id : message.sender_id;
+        message.sender_user_id === userId
+          ? message.receiver_user_id
+          : message.sender_user_id;
 
       const prev = latestMap.get(partnerId);
       if (!prev) {
