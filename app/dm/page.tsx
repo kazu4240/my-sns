@@ -58,23 +58,22 @@ const DEFAULT_BORDER = "#2f3336";
 function PinIcon({ active, color }: { active: boolean; color: string }) {
   return (
     <svg
-      width="19"
-      height="19"
+      width="20"
+      height="20"
       viewBox="0 0 24 24"
       fill="none"
       aria-hidden="true"
       style={{ display: "block" }}
     >
       <path
-        d="M15.5 4.5L19.5 8.5L16.3 9.7L13.7 12.3L13.9 18.3L11.7 16.1L9.6 14L6.4 15.2L10.4 11.2L11.6 8L15.5 4.5Z"
+        d="M14 3L21 10L17.5 11.5L13.5 15.5V21L10.5 18L8.5 16L3 18L8 13L12 9L14 3Z"
+        fill={active ? color : "none"}
         stroke={color}
         strokeWidth="1.9"
         strokeLinejoin="round"
-        fill={active ? color : "none"}
-        fillOpacity={active ? 0.12 : 0}
       />
       <path
-        d="M12 18L8.5 21.5"
+        d="M10 18L6 22"
         stroke={color}
         strokeWidth="1.9"
         strokeLinecap="round"
@@ -82,6 +81,7 @@ function PinIcon({ active, color }: { active: boolean; color: string }) {
     </svg>
   );
 }
+
 
 function NoteIcon({ color }: { color: string }) {
   return (
@@ -765,12 +765,12 @@ export default function DMPage() {
                     disabled={pinLoadingUserId === item.userId}
                     title={item.pinned ? "ピン解除" : "ピン留め"}
                     style={{
-                      width: "44px",
-                      height: "44px",
-                      border: `1px solid ${item.pinned ? currentTheme.accent : currentTheme.border}`,
-                      background: item.pinned
-                        ? "rgba(29,155,240,0.12)"
-                        : "transparent",
+                      width: "42px",
+height: "42px",
+border: `1px solid ${item.pinned ? currentTheme.accent : currentTheme.border}`,
+background: item.pinned ? "rgba(29,155,240,0.10)" : "transparent",
+boxShadow: item.pinned ? "0 0 0 1px rgba(29,155,240,0.06) inset" : "none",
+
                       color: item.pinned ? currentTheme.accent : currentTheme.muted,
                       borderRadius: "9999px",
                       cursor:
