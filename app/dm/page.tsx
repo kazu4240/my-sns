@@ -201,18 +201,10 @@ export default function DMPage() {
           .eq("user_id", currentUserId),
       ]);
 
-      if (sentRes.error) {
-        console.error("sent messages取得失敗:", sentRes.error);
-      }
-      if (receivedRes.error) {
-        console.error("received messages取得失敗:", receivedRes.error);
-      }
-      if (pinRes.error) {
-        console.error("dm_pins取得失敗:", pinRes.error);
-      }
-      if (noteRes.error) {
-        console.error("dm_notes取得失敗:", noteRes.error);
-      }
+      if (sentRes.error) console.error("sent messages取得失敗:", sentRes.error);
+      if (receivedRes.error) console.error("received messages取得失敗:", receivedRes.error);
+      if (pinRes.error) console.error("dm_pins取得失敗:", pinRes.error);
+      if (noteRes.error) console.error("dm_notes取得失敗:", noteRes.error);
 
       const mergedMessages = [
         ...((sentRes.data ?? []) as Message[]),
@@ -303,7 +295,7 @@ export default function DMPage() {
   }, []);
 
   useEffect(() => {
-    const handleFocus = async () => {
+    const reload = async () => {
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -311,22 +303,27 @@ export default function DMPage() {
       await fetchDMList(user?.id ?? null);
     };
 
+    const handleFocus = async () => {
+      await reload();
+    };
+
     const handleVisibilityChange = async () => {
       if (document.visibilityState === "visible") {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-
-        await fetchDMList(user?.id ?? null);
+        await reload();
       }
     };
 
     window.addEventListener("focus", handleFocus);
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
+    const intervalId = window.setInterval(() => {
+      reload();
+    }, 3000);
+
     return () => {
       window.removeEventListener("focus", handleFocus);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.clearInterval(intervalId);
     };
   }, []);
 
