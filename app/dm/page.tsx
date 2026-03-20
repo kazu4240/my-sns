@@ -179,20 +179,56 @@ export default function DMPage() {
     setLoading(true);
 
     try {
-      const { data: messageData, error: messageError } = await supabase
-        .from("messages")
-        .select("id, sender_id, receiver_id, content, created_at")
-        .or(`sender_id.eq.${currentUserId},receiver_id.eq.${currentUserId}`)
-        .order("created_at", { ascending: false });
+      const [sentRes, receivedRes, pinRes, noteRes] = await Promise.all([
+        supabase
+          .from("messages")
+          .select("id, sender_id, receiver_id, content, created_at")
+          .eq("sender_id", currentUserId),
 
-      if (messageError) {
-        console.error(messageError);
-        setMessages([]);
-        setLoading(false);
-        return;
+        supabase
+          .from("messages")
+          .select("id, sender_id, receiver_id, content, created_at")
+          .eq("receiver_id", currentUserId),
+
+        supabase
+          .from("dm_pins")
+          .select("id, user_id, target_user_id, created_at")
+          .eq("user_id", currentUserId),
+
+        supabase
+          .from("dm_notes")
+          .select("id, user_id, target_user_id, note, created_at, updated_at")
+          .eq("user_id", currentUserId),
+      ]);
+
+      if (sentRes.error) {
+        console.error("sent messages取得失敗:", sentRes.error);
+      }
+      if (receivedRes.error) {
+        console.error("received messages取得失敗:", receivedRes.error);
+      }
+      if (pinRes.error) {
+        console.error("dm_pins取得失敗:", pinRes.error);
+      }
+      if (noteRes.error) {
+        console.error("dm_notes取得失敗:", noteRes.error);
       }
 
-      const loadedMessages = (messageData ?? []) as Message[];
+      const mergedMessages = [
+        ...((sentRes.data ?? []) as Message[]),
+        ...((receivedRes.data ?? []) as Message[]),
+      ];
+
+      const uniqueMessageMap = new Map<number, Message>();
+      for (const message of mergedMessages) {
+        uniqueMessageMap.set(message.id, message);
+      }
+
+      const loadedMessages = Array.from(uniqueMessageMap.values()).sort(
+        (a, b) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+
       setMessages(loadedMessages);
 
       const userIds = new Set<string>();
@@ -214,7 +250,7 @@ export default function DMPage() {
           .in("user_id", ids);
 
         if (profileError) {
-          console.error(profileError);
+          console.error("profiles取得失敗:", profileError);
           setProfiles({});
         } else {
           const nextProfiles: Record<string, Profile> = {};
@@ -227,39 +263,27 @@ export default function DMPage() {
         setProfiles({});
       }
 
-      const { data: pinData, error: pinError } = await supabase
-        .from("dm_pins")
-        .select("id, user_id, target_user_id, created_at")
-        .eq("user_id", currentUserId);
-
-      if (pinError) {
-        console.error(pinError);
-        setPins({});
-      } else {
+      if (!pinRes.error) {
         const nextPins: Record<string, boolean> = {};
-        for (const pin of (pinData ?? []) as DmPin[]) {
+        for (const pin of (pinRes.data ?? []) as DmPin[]) {
           nextPins[pin.target_user_id] = true;
         }
         setPins(nextPins);
+      } else {
+        setPins({});
       }
 
-      const { data: noteData, error: noteError } = await supabase
-        .from("dm_notes")
-        .select("id, user_id, target_user_id, note, created_at, updated_at")
-        .eq("user_id", currentUserId);
-
-      if (noteError) {
-        console.error(noteError);
-        setNotes({});
-      } else {
+      if (!noteRes.error) {
         const nextNotes: Record<string, string> = {};
-        for (const note of (noteData ?? []) as DmNote[]) {
+        for (const note of (noteRes.data ?? []) as DmNote[]) {
           nextNotes[note.target_user_id] = note.note || "";
         }
         setNotes(nextNotes);
+      } else {
+        setNotes({});
       }
     } catch (error) {
-      console.error(error);
+      console.error("DM一覧取得失敗:", error);
       setMessages([]);
       setProfiles({});
       setPins({});
@@ -276,6 +300,34 @@ export default function DMPage() {
     };
 
     init();
+  }, []);
+
+  useEffect(() => {
+    const handleFocus = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      await fetchDMList(user?.id ?? null);
+    };
+
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === "visible") {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        await fetchDMList(user?.id ?? null);
+      }
+    };
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, []);
 
   const conversationList = useMemo(() => {
@@ -390,7 +442,6 @@ export default function DMPage() {
 
         if (error) {
           alert("ピン解除失敗: " + error.message);
-          setPinLoadingUserId(null);
           return;
         }
 
@@ -407,7 +458,6 @@ export default function DMPage() {
 
         if (error) {
           alert("ピン留め失敗: " + error.message);
-          setPinLoadingUserId(null);
           return;
         }
 
@@ -438,7 +488,6 @@ export default function DMPage() {
 
         if (error) {
           alert("メモ削除失敗: " + error.message);
-          setNoteLoadingUserId(null);
           return;
         }
 
@@ -465,7 +514,6 @@ export default function DMPage() {
 
       if (error) {
         alert("メモ保存失敗: " + error.message);
-        setNoteLoadingUserId(null);
         return;
       }
 
