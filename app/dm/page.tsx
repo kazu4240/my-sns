@@ -55,26 +55,28 @@ const DEFAULT_TEXT = "#ffffff";
 const DEFAULT_ACCENT = "#1d9bf0";
 const DEFAULT_BORDER = "#2f3336";
 
-function PinIcon({ filled, color }: { filled: boolean; color: string }) {
+function PinIcon({ active, color }: { active: boolean; color: string }) {
   return (
     <svg
-      width="18"
-      height="18"
+      width="19"
+      height="19"
       viewBox="0 0 24 24"
-      fill={filled ? color : "none"}
+      fill="none"
       aria-hidden="true"
       style={{ display: "block" }}
     >
       <path
-        d="M14.5 4.5L19.5 9.5L16.5 10.5L13.5 13.5V19.5L11.5 17.5L10.5 14.5L7.5 11.5L4.5 12.5L9.5 7.5L10.5 4.5H14.5Z"
+        d="M15.5 4.5L19.5 8.5L16.3 9.7L13.7 12.3L13.9 18.3L11.7 16.1L9.6 14L6.4 15.2L10.4 11.2L11.6 8L15.5 4.5Z"
         stroke={color}
-        strokeWidth="1.8"
+        strokeWidth="1.9"
         strokeLinejoin="round"
+        fill={active ? color : "none"}
+        fillOpacity={active ? 0.12 : 0}
       />
       <path
-        d="M12 19.5L8 23.5"
+        d="M12 18L8.5 21.5"
         stroke={color}
-        strokeWidth="1.8"
+        strokeWidth="1.9"
         strokeLinecap="round"
       />
     </svg>
@@ -84,8 +86,8 @@ function PinIcon({ filled, color }: { filled: boolean; color: string }) {
 function NoteIcon({ color }: { color: string }) {
   return (
     <svg
-      width="18"
-      height="18"
+      width="19"
+      height="19"
       viewBox="0 0 24 24"
       fill="none"
       aria-hidden="true"
@@ -314,14 +316,9 @@ export default function DMPage() {
     window.addEventListener("focus", handleFocus);
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
-    const intervalId = window.setInterval(() => {
-      reload();
-    }, 3000);
-
     return () => {
       window.removeEventListener("focus", handleFocus);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
-      window.clearInterval(intervalId);
     };
   }, []);
 
@@ -713,18 +710,6 @@ export default function DMPage() {
                         {getShownName(item)}
                       </span>
 
-                      {item.pinned && (
-                        <span
-                          style={{
-                            color: currentTheme.accent,
-                            display: "inline-flex",
-                            alignItems: "center",
-                          }}
-                        >
-                          <PinIcon filled={true} color={currentTheme.accent} />
-                        </span>
-                      )}
-
                       <span
                         style={{
                           marginLeft: "auto",
@@ -771,19 +756,23 @@ export default function DMPage() {
                   style={{
                     display: "flex",
                     flexDirection: "column",
-                    gap: "8px",
+                    gap: "10px",
                     flexShrink: 0,
                   }}
                 >
                   <button
                     onClick={() => handleTogglePin(item.userId)}
                     disabled={pinLoadingUserId === item.userId}
+                    title={item.pinned ? "ピン解除" : "ピン留め"}
                     style={{
-                      border: `1px solid ${currentTheme.border}`,
-                      background: item.pinned ? currentTheme.accent : "transparent",
-                      color: item.pinned ? "#ffffff" : currentTheme.muted,
+                      width: "44px",
+                      height: "44px",
+                      border: `1px solid ${item.pinned ? currentTheme.accent : currentTheme.border}`,
+                      background: item.pinned
+                        ? "rgba(29,155,240,0.12)"
+                        : "transparent",
+                      color: item.pinned ? currentTheme.accent : currentTheme.muted,
                       borderRadius: "9999px",
-                      padding: "8px 10px",
                       cursor:
                         pinLoadingUserId === item.userId ? "not-allowed" : "pointer",
                       display: "flex",
@@ -792,20 +781,22 @@ export default function DMPage() {
                     }}
                   >
                     <PinIcon
-                      filled={item.pinned}
-                      color={item.pinned ? "#ffffff" : currentTheme.muted}
+                      active={item.pinned}
+                      color={item.pinned ? currentTheme.accent : currentTheme.muted}
                     />
                   </button>
 
                   <button
                     onClick={() => handleEditNote(item.userId)}
                     disabled={noteLoadingUserId === item.userId}
+                    title="メモ"
                     style={{
+                      width: "44px",
+                      height: "44px",
                       border: `1px solid ${currentTheme.border}`,
                       background: "transparent",
                       color: currentTheme.muted,
                       borderRadius: "9999px",
-                      padding: "8px 10px",
                       cursor:
                         noteLoadingUserId === item.userId ? "not-allowed" : "pointer",
                       display: "flex",
