@@ -173,7 +173,7 @@ export default function BottomNav() {
       style={{
         position: "fixed",
         left: "50%",
-        bottom: "0",
+        bottom: "12px",
         transform: hidden
           ? "translateX(-50%) translateY(110%)"
           : "translateX(-50%) translateY(0)",
@@ -192,7 +192,7 @@ export default function BottomNav() {
           display: "grid",
           gridTemplateColumns: "repeat(5, 1fr)",
           alignItems: "center",
-          height: "56px",
+          height: "76px",
           paddingBottom: "env(safe-area-inset-bottom)",
         }}
       >
