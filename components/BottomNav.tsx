@@ -145,9 +145,19 @@ const navItems = [
   { href: "/dm", render: (active: boolean) => <DMIcon active={active} /> },
 ];
 
+const hiddenRoutes = [
+  "/login",
+  "/terms",
+  "/privacy",
+  "/contact",
+  "/account/delete",
+];
+
 export default function BottomNav() {
   const pathname = usePathname();
   const [hidden, setHidden] = useState(false);
+
+  const shouldHide = hiddenRoutes.some((route) => pathname.startsWith(route));
 
   useEffect(() => {
     const handleVisibility = (event: Event) => {
@@ -167,6 +177,10 @@ export default function BottomNav() {
       );
     };
   }, []);
+
+  if (shouldHide) {
+    return null;
+  }
 
   return (
     <nav
