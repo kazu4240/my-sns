@@ -1040,7 +1040,10 @@ export default function Home() {
       return;
     }
 
-    const ok = window.confirm("この投稿を削除する？");
+    const isReplyPost = post.parent_id !== null;
+    const ok = window.confirm(
+      isReplyPost ? "この返信を削除する？" : "この投稿を削除する？"
+    );
     if (!ok) return;
 
     const { error } = await supabase.from("posts").delete().eq("id", post.id);
@@ -1519,12 +1522,14 @@ export default function Home() {
               )}
             </div>
 
-            {!isReply && (
+            {(!isReply || isOwner) && (
               <div style={{ position: "relative", flexShrink: 0 }}>
                 <button
                   onClick={(e: ReactMouseEvent<HTMLButtonElement>) => {
                     e.stopPropagation();
-                    setOpenMenuPostId((prev) => (prev === post.id ? null : post.id));
+                    setOpenMenuPostId((prev) =>
+                      prev === post.id ? null : post.id
+                    );
                   }}
                   style={{
                     background: "transparent",
@@ -1558,9 +1563,15 @@ export default function Home() {
                   >
                     {isOwner ? (
                       <>
-                        <button onClick={() => handleEdit(post)} style={menuItemStyle}>
-                          編集
-                        </button>
+                        {!isReply && (
+                          <button
+                            onClick={() => handleEdit(post)}
+                            style={menuItemStyle}
+                          >
+                            編集
+                          </button>
+                        )}
+
                         <button
                           onClick={() => handleDelete(post)}
                           style={{
@@ -1568,22 +1579,24 @@ export default function Home() {
                             color: "#ff6b6b",
                           }}
                         >
-                          削除
+                          {isReply ? "返信を削除" : "削除"}
                         </button>
                       </>
                     ) : (
-                      <Link
-                        href={`/report/post/${post.id}`}
-                        onClick={() => setOpenMenuPostId(null)}
-                        style={{
-                          display: "block",
-                          ...menuItemStyle,
-                          color: "#ff6b6b",
-                          textDecoration: "none",
-                        }}
-                      >
-                        通報
-                      </Link>
+                      !isReply && (
+                        <Link
+                          href={`/report/post/${post.id}`}
+                          onClick={() => setOpenMenuPostId(null)}
+                          style={{
+                            display: "block",
+                            ...menuItemStyle,
+                            color: "#ff6b6b",
+                            textDecoration: "none",
+                          }}
+                        >
+                          通報
+                        </Link>
+                      )
                     )}
                   </div>
                 )}
