@@ -38,6 +38,35 @@ const DEFAULT_TEXT = "#ffffff";
 const DEFAULT_ACCENT = "#1d9bf0";
 const DEFAULT_BORDER = "#2f3336";
 
+function HeartIcon({
+  size,
+  color,
+  filled,
+}: {
+  size: number;
+  color: string;
+  filled: boolean;
+}) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill={filled ? color : "none"}
+      aria-hidden="true"
+      style={{ display: "block" }}
+    >
+      <path
+        d="M12 20.5C11.7 20.5 11.4 20.4 11.1 20.2C8.7 18.5 3 14.3 3 9.2C3 6.3 5.2 4 8.1 4C9.8 4 11.1 4.8 12 5.8C12.9 4.8 14.2 4 15.9 4C18.8 4 21 6.3 21 9.2C21 14.3 15.3 18.5 12.9 20.2C12.6 20.4 12.3 20.5 12 20.5Z"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export default function BookmarksPage() {
   const [loading, setLoading] = useState(true);
   const [posts, setPosts] = useState<Post[]>([]);
@@ -81,17 +110,20 @@ export default function BookmarksPage() {
           avatar: 40,
           postText: 15,
           meta: 12,
+          icon: 18,
         }
       : uiScale === "large"
       ? {
           avatar: 56,
           postText: 18,
           meta: 14,
+          icon: 22,
         }
       : {
           avatar: 48,
           postText: 17,
           meta: 13,
+          icon: 20,
         };
 
   const loadBookmarks = async () => {
@@ -168,7 +200,10 @@ export default function BookmarksPage() {
 
       const userIds = Array.from(
         new Set(
-          [user.id, ...postsData.map((post) => post.user_id).filter(Boolean)] as string[]
+          [
+            user.id,
+            ...postsData.map((post) => post.user_id).filter(Boolean),
+          ] as string[]
         )
       );
 
@@ -316,7 +351,9 @@ export default function BookmarksPage() {
             </p>
           ) : (
             posts.map((post) => {
-              const profileHref = post.user_id ? `/users/${post.user_id}` : "/profile";
+              const profileHref = post.user_id
+                ? `/users/${post.user_id}`
+                : "/profile";
               const avatarUrl = getAvatarUrl(post);
 
               return (
@@ -364,7 +401,7 @@ export default function BookmarksPage() {
                     </Link>
                   )}
 
-                  <div style={{ flex: 1 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
                     <div
                       style={{
                         display: "flex",
@@ -385,11 +422,21 @@ export default function BookmarksPage() {
                         {getDisplayName(post)}
                       </Link>
 
-                      <span style={{ color: currentTheme.muted, fontSize: sizes.meta }}>
+                      <span
+                        style={{
+                          color: currentTheme.muted,
+                          fontSize: sizes.meta,
+                        }}
+                      >
                         @{getUsername(post)}
                       </span>
 
-                      <span style={{ color: currentTheme.muted, fontSize: sizes.meta }}>
+                      <span
+                        style={{
+                          color: currentTheme.muted,
+                          fontSize: sizes.meta,
+                        }}
+                      >
                         ・ {formatDate(post.created_at)}
                       </span>
                     </div>
@@ -402,6 +449,7 @@ export default function BookmarksPage() {
                         lineHeight: 1.6,
                         fontSize: sizes.postText,
                         whiteSpace: "pre-wrap",
+                        wordBreak: "break-word",
                       }}
                     >
                       {post.content}
@@ -434,9 +482,18 @@ export default function BookmarksPage() {
                         marginTop: "12px",
                         color: currentTheme.muted,
                         fontSize: sizes.meta,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        fontWeight: "bold",
                       }}
                     >
-                      ❤️ {post.likes}
+                      <HeartIcon
+                        size={sizes.icon}
+                        color={currentTheme.muted}
+                        filled={false}
+                      />
+                      <span>{post.likes}</span>
                     </div>
                   </div>
                 </article>
