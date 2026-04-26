@@ -1873,6 +1873,19 @@ export default function Home() {
                     プライバシーポリシー
                   </Link>
 
+                  <Link
+                    href="/account/delete"
+                    onClick={() => setOpenSettingsMenu(false)}
+                    style={{
+                      display: "block",
+                      ...menuItemStyle,
+                      textDecoration: "none",
+                      color: "#ffb4b4",
+                    }}
+                  >
+                    アカウント削除
+                  </Link>
+
                   <button
                     onClick={handleLogout}
                     style={{
