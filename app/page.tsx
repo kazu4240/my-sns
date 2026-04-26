@@ -1849,6 +1849,30 @@ export default function Home() {
                     お問い合わせ
                   </Link>
 
+                  <Link
+                    href="/terms"
+                    onClick={() => setOpenSettingsMenu(false)}
+                    style={{
+                      display: "block",
+                      ...menuItemStyle,
+                      textDecoration: "none",
+                    }}
+                  >
+                    利用規約
+                  </Link>
+
+                  <Link
+                    href="/privacy"
+                    onClick={() => setOpenSettingsMenu(false)}
+                    style={{
+                      display: "block",
+                      ...menuItemStyle,
+                      textDecoration: "none",
+                    }}
+                  >
+                    プライバシーポリシー
+                  </Link>
+
                   <button
                     onClick={handleLogout}
                     style={{
@@ -1982,6 +2006,66 @@ export default function Home() {
           ＋
         </button>
       )}
+
+      <footer
+        style={{
+          maxWidth: "720px",
+          margin: "0 auto",
+          borderLeft: `1px solid ${currentTheme.border}`,
+          borderRight: `1px solid ${currentTheme.border}`,
+          borderTop: `1px solid ${currentTheme.border}`,
+          padding: "22px 20px 110px",
+          textAlign: "center",
+          background: currentTheme.background,
+          color: currentTheme.muted,
+          fontSize: uiScale.metaText,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            gap: "18px",
+            flexWrap: "wrap",
+            marginBottom: "10px",
+          }}
+        >
+          <Link
+            href="/terms"
+            style={{
+              color: currentTheme.muted,
+              textDecoration: "none",
+              fontWeight: "bold",
+            }}
+          >
+            利用規約
+          </Link>
+
+          <Link
+            href="/privacy"
+            style={{
+              color: currentTheme.muted,
+              textDecoration: "none",
+              fontWeight: "bold",
+            }}
+          >
+            プライバシーポリシー
+          </Link>
+
+          <Link
+            href="/contact"
+            style={{
+              color: currentTheme.muted,
+              textDecoration: "none",
+              fontWeight: "bold",
+            }}
+          >
+            お問い合わせ
+          </Link>
+        </div>
+
+        <p style={{ margin: 0 }}>© 2026 Ulein</p>
+      </footer>
 
       {isComposerOpen && (
         <div
