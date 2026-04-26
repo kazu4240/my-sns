@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 
@@ -9,7 +9,6 @@ type AuthMode = "login" | "signup";
 
 export default function LoginPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   const [mode, setMode] = useState<AuthMode>("login");
   const [email, setEmail] = useState("");
@@ -19,14 +18,17 @@ export default function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    const modeParam = searchParams.get("mode");
+    if (typeof window === "undefined") return;
+
+    const params = new URLSearchParams(window.location.search);
+    const modeParam = params.get("mode");
 
     if (modeParam === "signup") {
       setMode("signup");
     } else {
       setMode("login");
     }
-  }, [searchParams]);
+  }, []);
 
   const switchMode = (nextMode: AuthMode) => {
     setMode(nextMode);
