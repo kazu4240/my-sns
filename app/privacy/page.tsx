@@ -96,7 +96,9 @@ export default function PrivacyPage() {
                 <li>ユーザー名、表示名、自己紹介、アイコン画像などのプロフィール情報</li>
                 <li>投稿内容、画像、返信、いいね、フォロー、通知などの利用情報</li>
                 <li>お問い合わせ時に入力された情報</li>
-                <li>不具合調査や安全管理のために必要なアクセス情報、端末情報、ログ情報</li>
+                <li>
+                  不具合調査や安全管理のために必要なアクセス情報、端末情報、ログ情報
+                </li>
               </ul>
             </section>
 
@@ -131,17 +133,16 @@ export default function PrivacyPage() {
             <section>
               <h2 style={headingStyle}>第4条（外部サービスの利用）</h2>
               <p style={paragraphStyle}>
-                Uleinでは、サービス提供のために以下の外部サービスを利用する場合があります。
+                Uleinでは、サービスの提供、運営、保守、データ保存、認証、画像保存、
+                サイト配信などのために、外部サービスを利用する場合があります。
               </p>
 
-              <ul style={listStyle}>
-                <li>Supabase：認証、データベース、画像保存など</li>
-                <li>Vercel：Webサイトの公開、配信、ホスティングなど</li>
-                <li>GitHub：ソースコード管理、デプロイ連携など</li>
-              </ul>
+              <p style={paragraphStyle}>
+                これらの外部サービスでは、サービス提供に必要な範囲でユーザー情報が取り扱われる場合があります。
+              </p>
 
               <p style={paragraphStyle}>
-                これらの外部サービスでは、各サービスの規約やプライバシーポリシーに基づいて情報が取り扱われる場合があります。
+                Uleinは、利用する外部サービスについて、できる限り適切な管理と安全性の確認に努めます。
               </p>
             </section>
 
@@ -157,8 +158,8 @@ export default function PrivacyPage() {
             <section>
               <h2 style={headingStyle}>第6条（情報の管理）</h2>
               <p style={paragraphStyle}>
-                Uleinは、取得した情報について、不正アクセス、紛失、破壊、改ざん、漏えいなどを防ぐため、
-                できる限り適切な安全管理に努めます。
+                Uleinは、取得した情報について、不正アクセス、紛失、破壊、改ざん、
+                漏えいなどを防ぐため、できる限り適切な安全管理に努めます。
               </p>
               <p style={paragraphStyle}>
                 ただし、インターネット上のサービスである性質上、完全な安全性を保証するものではありません。
