@@ -1954,6 +1954,97 @@ export default function Home() {
           </div>
         </header>
 
+        {!userEmail && (
+          <section
+            style={{
+              padding: "22px 20px",
+              borderBottom: `1px solid ${currentTheme.border}`,
+              background: currentTheme.background,
+            }}
+          >
+            <div
+              style={{
+                border: `1px solid ${currentTheme.border}`,
+                borderRadius: "22px",
+                padding: "22px 18px",
+                background: currentTheme.card,
+              }}
+            >
+              <h1
+                style={{
+                  margin: 0,
+                  color: currentTheme.text,
+                  fontSize: uiScale.headerTitle,
+                  lineHeight: 1.25,
+                  letterSpacing: "-0.03em",
+                }}
+              >
+                Uleinへようこそ
+              </h1>
+
+              <p
+                style={{
+                  margin: "10px 0 0",
+                  color: currentTheme.softText,
+                  fontSize: uiScale.replyText,
+                  lineHeight: 1.75,
+                }}
+              >
+                今の気持ちを短く投稿できるSNSです。
+                ログインすると投稿・返信・いいね・フォローができます。
+              </p>
+
+              <div
+                style={{
+                  display: "flex",
+                  gap: "10px",
+                  flexWrap: "wrap",
+                  marginTop: "18px",
+                }}
+              >
+                <Link
+                  href="/login"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    minHeight: "44px",
+                    padding: "0 18px",
+                    borderRadius: "9999px",
+                    background: currentTheme.accent,
+                    color: "#ffffff",
+                    textDecoration: "none",
+                    fontSize: uiScale.actionText,
+                    fontWeight: 800,
+                  }}
+                >
+                  ログイン
+                </Link>
+
+                <Link
+                  href="/login?mode=signup"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    minHeight: "44px",
+                    padding: "0 18px",
+                    borderRadius: "9999px",
+                    border: `1px solid ${currentTheme.border}`,
+                    background: "transparent",
+                    color: currentTheme.text,
+                    textDecoration: "none",
+                    fontSize: uiScale.actionText,
+                    fontWeight: 800,
+                  }}
+                >
+                  新規登録
+                </Link>
+              </div>
+            </div>
+          </section>
+        )}
+
         <section>
           {errorMessage && (
             <div
