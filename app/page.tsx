@@ -1851,6 +1851,18 @@ export default function Home() {
                   </Link>
 
                   <Link
+  href="/gacha"
+  onClick={() => setOpenSettingsMenu(false)}
+  style={{
+    display: "block",
+    ...menuItemStyle,
+    textDecoration: "none",
+  }}
+>
+  ガチャ
+</Link>
+
+                  <Link
                     href="/contact"
                     onClick={() => setOpenSettingsMenu(false)}
                     style={{
