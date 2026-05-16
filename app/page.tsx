@@ -27,11 +27,21 @@ type Profile = {
   username: string | null;
   bio: string | null;
   avatar_url: string | null;
+  selected_avatar_frame_key: string | null;
   theme_background_color: string | null;
   theme_card_color: string | null;
   theme_text_color: string | null;
   theme_accent_color: string | null;
   ui_scale: string | null;
+};
+
+type AvatarFrame = {
+  frame_key: string;
+  name: string;
+  rarity: string;
+  border_css: string;
+  glow_css: string | null;
+  sort_order: number | null;
 };
 
 type NotificationInsert = {
@@ -189,6 +199,7 @@ function SettingsIcon({ size, color }: { size: number; color: string }) {
 export default function Home() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [profiles, setProfiles] = useState<Record<string, Profile>>({});
+  const [avatarFrames, setAvatarFrames] = useState<Record<string, AvatarFrame>>({});
   const [followingUserIds, setFollowingUserIds] = useState<string[]>([]);
   const [bookmarkedPostIds, setBookmarkedPostIds] = useState<number[]>([]);
   const [likedPostIds, setLikedPostIds] = useState<number[]>([]);
@@ -504,7 +515,7 @@ export default function Home() {
       const { data, error } = await supabase
         .from("profiles")
         .select(
-          "user_id, display_name, username, bio, avatar_url, theme_background_color, theme_card_color, theme_text_color, theme_accent_color, ui_scale"
+          "user_id, display_name, username, bio, avatar_url, selected_avatar_frame_key, theme_background_color, theme_card_color, theme_text_color, theme_accent_color, ui_scale"
         )
         .limit(20);
 
@@ -566,6 +577,22 @@ export default function Home() {
       const postsData = (data ?? []) as Post[];
       setPosts(postsData);
 
+      const { data: frameData, error: frameError } = await supabase
+        .from("avatar_frames")
+        .select("frame_key, name, rarity, border_css, glow_css, sort_order")
+        .order("sort_order", { ascending: true });
+
+      if (frameError) {
+        console.error(frameError);
+        setAvatarFrames({});
+      } else {
+        const frameMap: Record<string, AvatarFrame> = {};
+        for (const frame of frameData ?? []) {
+          frameMap[frame.frame_key] = frame as AvatarFrame;
+        }
+        setAvatarFrames(frameMap);
+      }
+
       const idSet = new Set<string>();
       for (const post of postsData) {
         if (post.user_id) {
@@ -588,7 +615,7 @@ export default function Home() {
       const { data: profileData, error: profileError } = await supabase
         .from("profiles")
         .select(
-          "user_id, display_name, username, bio, avatar_url, theme_background_color, theme_card_color, theme_text_color, theme_accent_color, ui_scale"
+          "user_id, display_name, username, bio, avatar_url, selected_avatar_frame_key, theme_background_color, theme_card_color, theme_text_color, theme_accent_color, ui_scale"
         )
         .in("user_id", userIds);
 
@@ -609,6 +636,7 @@ export default function Home() {
       console.error(error);
       setPosts([]);
       setProfiles({});
+      setAvatarFrames({});
       setFollowingUserIds([]);
       setBookmarkedPostIds([]);
       setLikedPostIds([]);
@@ -1220,6 +1248,85 @@ export default function Home() {
     return null;
   };
 
+  const getAvatarFrame = (profileUserId: string | null) => {
+    if (!profileUserId) return null;
+
+    const frameKey = profiles[profileUserId]?.selected_avatar_frame_key;
+    if (!frameKey) return null;
+
+    return avatarFrames[frameKey] ?? null;
+  };
+
+  const renderAvatar = ({
+    href,
+    userIdForFrame,
+    avatarUrl,
+    fallbackText,
+    size,
+    fontSize,
+  }: {
+    href: string;
+    userIdForFrame: string | null;
+    avatarUrl: string | null;
+    fallbackText: string;
+    size: number;
+    fontSize: number;
+  }) => {
+    const frame = getAvatarFrame(userIdForFrame);
+    const framePadding = frame ? 3 : 0;
+
+    return (
+      <Link
+        href={href}
+        style={{
+          width: size,
+          height: size,
+          borderRadius: "9999px",
+          padding: framePadding,
+          border: frame?.border_css ?? "none",
+          boxShadow: frame?.glow_css ?? "none",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+          textDecoration: "none",
+          boxSizing: "border-box",
+        }}
+      >
+        {avatarUrl ? (
+          <img
+            src={avatarUrl}
+            alt="avatar"
+            style={{
+              width: "100%",
+              height: "100%",
+              borderRadius: "9999px",
+              objectFit: "cover",
+              display: "block",
+            }}
+          />
+        ) : (
+          <div
+            style={{
+              width: "100%",
+              height: "100%",
+              borderRadius: "9999px",
+              background: currentTheme.accent,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontWeight: "bold",
+              color: "#ffffff",
+              fontSize,
+            }}
+          >
+            {fallbackText.slice(0, 1).toUpperCase()}
+          </div>
+        )}
+      </Link>
+    );
+  };
+
   const myAvatarUrl =
     userId && profiles[userId]?.avatar_url ? profiles[userId].avatar_url : null;
 
@@ -1305,37 +1412,52 @@ export default function Home() {
                   color: currentTheme.text,
                 }}
               >
-                {profile.avatar_url ? (
-                  <img
-                    src={profile.avatar_url}
-                    alt="avatar"
-                    style={{
-                      width: uiScale.recommendedAvatar,
-                      height: uiScale.recommendedAvatar,
-                      borderRadius: "9999px",
-                      objectFit: "cover",
-                      flexShrink: 0,
-                    }}
-                  />
-                ) : (
-                  <div
-                    style={{
-                      width: uiScale.recommendedAvatar,
-                      height: uiScale.recommendedAvatar,
-                      borderRadius: "9999px",
-                      background: currentTheme.accent,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      color: "#ffffff",
-                      fontWeight: "bold",
-                      flexShrink: 0,
-                      fontSize: uiScale.replyText,
-                    }}
-                  >
-                    {shownName.slice(0, 1).toUpperCase()}
-                  </div>
-                )}
+                <div
+                  style={{
+                    width: uiScale.recommendedAvatar,
+                    height: uiScale.recommendedAvatar,
+                    borderRadius: "9999px",
+                    padding: getAvatarFrame(profile.user_id) ? 3 : 0,
+                    border: getAvatarFrame(profile.user_id)?.border_css ?? "none",
+                    boxShadow: getAvatarFrame(profile.user_id)?.glow_css ?? "none",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                    boxSizing: "border-box",
+                  }}
+                >
+                  {profile.avatar_url ? (
+                    <img
+                      src={profile.avatar_url}
+                      alt="avatar"
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        borderRadius: "9999px",
+                        objectFit: "cover",
+                        display: "block",
+                      }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        borderRadius: "9999px",
+                        background: currentTheme.accent,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: "#ffffff",
+                        fontWeight: "bold",
+                        fontSize: uiScale.replyText,
+                      }}
+                    >
+                      {shownName.slice(0, 1).toUpperCase()}
+                    </div>
+                  )}
+                </div>
 
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div
@@ -1424,41 +1546,14 @@ export default function Home() {
         }}
       >
         {!isReply &&
-          (getAvatarUrl(post) ? (
-            <Link href={profileHref} style={{ flexShrink: 0 }}>
-              <img
-                src={getAvatarUrl(post)!}
-                alt="avatar"
-                style={{
-                  width: uiScale.avatar,
-                  height: uiScale.avatar,
-                  borderRadius: "9999px",
-                  objectFit: "cover",
-                  display: "block",
-                }}
-              />
-            </Link>
-          ) : (
-            <Link
-              href={profileHref}
-              style={{
-                width: uiScale.avatar,
-                height: uiScale.avatar,
-                borderRadius: "9999px",
-                background: currentTheme.accent,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontWeight: "bold",
-                flexShrink: 0,
-                color: "#ffffff",
-                textDecoration: "none",
-                fontSize: uiScale.postText,
-              }}
-            >
-              {getDisplayName(post).slice(0, 1).toUpperCase()}
-            </Link>
-          ))}
+          renderAvatar({
+            href: profileHref,
+            userIdForFrame: post.user_id,
+            avatarUrl: getAvatarUrl(post),
+            fallbackText: getDisplayName(post),
+            size: uiScale.avatar,
+            fontSize: uiScale.postText,
+          })}
 
         <div style={{ flex: 1, minWidth: 0 }}>
           <div
@@ -2377,39 +2472,17 @@ export default function Home() {
                   alignItems: "flex-start",
                 }}
               >
-                {myAvatarUrl ? (
-                  <img
-                    src={myAvatarUrl}
-                    alt="my avatar"
-                    style={{
-                      width: uiScale.composerAvatar,
-                      height: uiScale.composerAvatar,
-                      borderRadius: "9999px",
-                      objectFit: "cover",
-                      flexShrink: 0,
-                    }}
-                  />
-                ) : (
-                  <Link
-                    href="/profile"
-                    style={{
-                      width: uiScale.composerAvatar,
-                      height: uiScale.composerAvatar,
-                      borderRadius: "9999px",
-                      background: currentTheme.accent,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontWeight: "bold",
-                      flexShrink: 0,
-                      color: "#ffffff",
-                      textDecoration: "none",
-                      fontSize: uiScale.postText,
-                    }}
-                  >
-                    K
-                  </Link>
-                )}
+                {renderAvatar({
+                  href: "/profile",
+                  userIdForFrame: userId,
+                  avatarUrl: myAvatarUrl,
+                  fallbackText:
+                    (userId &&
+                      (profiles[userId]?.display_name || profiles[userId]?.username)) ||
+                    "K",
+                  size: uiScale.composerAvatar,
+                  fontSize: uiScale.postText,
+                })}
 
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <textarea
