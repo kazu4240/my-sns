@@ -16,6 +16,16 @@ type Profile = {
   theme_text_color: string | null;
   theme_accent_color: string | null;
   ui_scale: string | null;
+  selected_avatar_frame_key: string | null;
+};
+
+type AvatarFrame = {
+  frame_key: string;
+  name: string;
+  rarity: string;
+  border_css: string;
+  glow_css: string | null;
+  sort_order: number;
 };
 
 const DEFAULT_BACKGROUND = "#15202b";
@@ -45,6 +55,8 @@ export default function ProfilePage() {
   const [textColor, setTextColor] = useState(DEFAULT_TEXT);
   const [accentColor, setAccentColor] = useState(DEFAULT_ACCENT);
   const [uiScale, setUiScale] = useState("normal");
+  const [selectedAvatarFrameKey, setSelectedAvatarFrameKey] = useState<string | null>(null);
+  const [avatarFrames, setAvatarFrames] = useState<AvatarFrame[]>([]);
 
   const currentTheme = useMemo(() => {
     return {
@@ -57,6 +69,16 @@ export default function ProfilePage() {
       softBorder: (textColor || DEFAULT_TEXT) === "#000000" ? "#d8d8d8" : "#2f3336",
     };
   }, [backgroundColor, cardColor, textColor, accentColor]);
+
+  const selectedAvatarFrame = useMemo(() => {
+    if (!selectedAvatarFrameKey) return null;
+
+    return (
+      avatarFrames.find(
+        (frame) => frame.frame_key === selectedAvatarFrameKey
+      ) ?? null
+    );
+  }, [avatarFrames, selectedAvatarFrameKey]);
 
   const sizes = useMemo(() => {
     if (uiScale === "compact") {
@@ -112,7 +134,7 @@ export default function ProfilePage() {
     const { data, error } = await supabase
       .from("profiles")
       .select(
-        "user_id, display_name, username, bio, avatar_url, header_url, theme_background_color, theme_card_color, theme_text_color, theme_accent_color, ui_scale"
+        "user_id, display_name, username, bio, avatar_url, header_url, theme_background_color, theme_card_color, theme_text_color, theme_accent_color, ui_scale, selected_avatar_frame_key"
       )
       .eq("user_id", user.id)
       .maybeSingle();
@@ -135,6 +157,19 @@ export default function ProfilePage() {
     setTextColor(profile?.theme_text_color || DEFAULT_TEXT);
     setAccentColor(profile?.theme_accent_color || DEFAULT_ACCENT);
     setUiScale(profile?.ui_scale || "normal");
+    setSelectedAvatarFrameKey(profile?.selected_avatar_frame_key || null);
+
+    const { data: frameData, error: frameError } = await supabase
+      .from("avatar_frames")
+      .select("*")
+      .order("sort_order", { ascending: true });
+
+    if (frameError) {
+      console.error(frameError);
+      setAvatarFrames([]);
+    } else {
+      setAvatarFrames((frameData ?? []) as AvatarFrame[]);
+    }
 
     setLoading(false);
   };
@@ -295,6 +330,7 @@ export default function ProfilePage() {
           theme_text_color: textColor,
           theme_accent_color: accentColor,
           ui_scale: uiScale,
+          selected_avatar_frame_key: selectedAvatarFrameKey,
         },
         {
           onConflict: "user_id",
@@ -487,9 +523,12 @@ export default function ProfilePage() {
                   width: sizes.avatar,
                   height: sizes.avatar,
                   borderRadius: "9999px",
+                  padding: selectedAvatarFrame ? "4px" : "0",
                   background: currentTheme.card,
-                  border: `4px solid ${currentTheme.background}`,
-                  overflow: "hidden",
+                  border:
+                    selectedAvatarFrame?.border_css ??
+                    `4px solid ${currentTheme.background}`,
+                  boxShadow: selectedAvatarFrame?.glow_css ?? "none",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -499,20 +538,33 @@ export default function ProfilePage() {
                   flexShrink: 0,
                 }}
               >
-                {avatarUrl ? (
-                  <img
-                    src={avatarUrl}
-                    alt="avatar"
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                      display: "block",
-                    }}
-                  />
-                ) : (
-                  (displayName || "U").slice(0, 1).toUpperCase()
-                )}
+                <div
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    borderRadius: "9999px",
+                    overflow: "hidden",
+                    background: currentTheme.card,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  {avatarUrl ? (
+                    <img
+                      src={avatarUrl}
+                      alt="avatar"
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                        display: "block",
+                      }}
+                    />
+                  ) : (
+                    (displayName || "U").slice(0, 1).toUpperCase()
+                  )}
+                </div>
               </div>
 
               <label
@@ -534,6 +586,39 @@ export default function ProfilePage() {
                   style={{ display: "none" }}
                 />
               </label>
+            </div>
+
+            <div
+              style={{
+                marginTop: "14px",
+                padding: "12px 14px",
+                border: `1px solid ${currentTheme.softBorder}`,
+                borderRadius: "16px",
+                background: currentTheme.background,
+                color: currentTheme.muted,
+                fontSize: `${sizes.helper}px`,
+                lineHeight: 1.7,
+              }}
+            >
+              <div style={{ fontWeight: "bold", color: currentTheme.text }}>
+                装備中フレーム：
+                {selectedAvatarFrame
+                  ? `${selectedAvatarFrame.name}（${selectedAvatarFrame.rarity}）`
+                  : "なし"}
+              </div>
+
+              <Link
+                href="/gacha"
+                style={{
+                  color: currentTheme.accent,
+                  textDecoration: "none",
+                  fontWeight: "bold",
+                  display: "inline-block",
+                  marginTop: "6px",
+                }}
+              >
+                ガチャでフレームを変更する
+              </Link>
             </div>
           </div>
         </section>
