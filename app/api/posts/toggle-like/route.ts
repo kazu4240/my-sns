@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
 
     const { data: targetPost, error: postCheckError } = await adminClient
       .from("posts")
-      .select("id, user_id")
+      .select("id, user_id, likes")
       .eq("id", postId)
       .maybeSingle();
 
@@ -81,6 +81,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const currentLikes =
+      typeof targetPost.likes === "number" && Number.isFinite(targetPost.likes)
+        ? targetPost.likes
+        : 0;
+
     const { data: existingLike, error: existingLikeError } = await adminClient
       .from("likes")
       .select("id")
@@ -96,6 +101,7 @@ export async function POST(request: NextRequest) {
     }
 
     let liked = false;
+    let nextLikes = currentLikes;
 
     if (existingLike) {
       const { error: deleteLikeError } = await adminClient
@@ -112,6 +118,7 @@ export async function POST(request: NextRequest) {
       }
 
       liked = false;
+      nextLikes = Math.max(0, currentLikes - 1);
     } else {
       const { error: insertLikeError } = await adminClient.from("likes").insert({
         user_id: user.id,
@@ -126,21 +133,8 @@ export async function POST(request: NextRequest) {
       }
 
       liked = true;
+      nextLikes = currentLikes + 1;
     }
-
-    const { count, error: countError } = await adminClient
-      .from("likes")
-      .select("id", { count: "exact", head: true })
-      .eq("post_id", postId);
-
-    if (countError) {
-      return NextResponse.json(
-        { error: "いいね数の取得に失敗しました: " + countError.message },
-        { status: 500 }
-      );
-    }
-
-    const nextLikes = count ?? 0;
 
     const { error: updatePostError } = await adminClient
       .from("posts")
