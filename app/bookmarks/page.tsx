@@ -495,6 +495,32 @@ export default function BookmarksPage() {
       return;
     }
 
+    const wasLiked = likedPostIds.includes(post.id);
+    const previousLikes = post.likes;
+    const nextOptimisticLikes = wasLiked
+      ? Math.max(0, previousLikes - 1)
+      : previousLikes + 1;
+
+    if (wasLiked) {
+      setLikedPostIds((prev) => prev.filter((id) => id !== post.id));
+    } else {
+      setLikedPostIds((prev) =>
+        prev.includes(post.id) ? prev : [...prev, post.id]
+      );
+    }
+
+    setPosts((prev) =>
+      prev.map((item) =>
+        item.id === post.id ? { ...item, likes: nextOptimisticLikes } : item
+      )
+    );
+
+    setReplies((prev) =>
+      prev.map((item) =>
+        item.id === post.id ? { ...item, likes: nextOptimisticLikes } : item
+      )
+    );
+
     try {
       const {
         data: { session },
@@ -503,8 +529,7 @@ export default function BookmarksPage() {
       const accessToken = session?.access_token;
 
       if (!accessToken) {
-        alert("ログイン情報が見つかりません");
-        return;
+        throw new Error("ログイン情報が見つかりません");
       }
 
       const response = await fetch("/api/posts/toggle-like", {
@@ -519,35 +544,61 @@ export default function BookmarksPage() {
       const result = await response.json();
 
       if (!response.ok) {
-        alert(result.error || "いいね処理に失敗しました");
-        return;
+        throw new Error(result.error || "いいね処理に失敗しました");
       }
 
-      if (result.liked) {
-        setLikedPostIds((prev) =>
-          prev.includes(post.id) ? prev : [...prev, post.id]
-        );
-
-        if (post.user_id) {
-          await createNotification({
-            user_id: post.user_id,
-            actor_user_id: currentUserId,
-            type: "like",
-            post_id: post.id,
-          });
+      setLikedPostIds((prev) => {
+        if (result.liked) {
+          return prev.includes(post.id) ? prev : [...prev, post.id];
         }
-      } else {
-        setLikedPostIds((prev) => prev.filter((id) => id !== post.id));
-      }
+
+        return prev.filter((id) => id !== post.id);
+      });
 
       setPosts((prev) =>
         prev.map((item) =>
           item.id === post.id ? { ...item, likes: result.likes } : item
         )
       );
+
+      setReplies((prev) =>
+        prev.map((item) =>
+          item.id === post.id ? { ...item, likes: result.likes } : item
+        )
+      );
+
+      if (result.liked && post.user_id && post.user_id !== currentUserId) {
+        createNotification({
+          user_id: post.user_id,
+          actor_user_id: currentUserId,
+          type: "like",
+          post_id: post.id,
+        });
+      }
     } catch (error) {
       console.error(error);
-      alert("いいね処理に失敗しました");
+
+      if (wasLiked) {
+        setLikedPostIds((prev) =>
+          prev.includes(post.id) ? prev : [...prev, post.id]
+        );
+      } else {
+        setLikedPostIds((prev) => prev.filter((id) => id !== post.id));
+      }
+
+      setPosts((prev) =>
+        prev.map((item) =>
+          item.id === post.id ? { ...item, likes: previousLikes } : item
+        )
+      );
+
+      setReplies((prev) =>
+        prev.map((item) =>
+          item.id === post.id ? { ...item, likes: previousLikes } : item
+        )
+      );
+
+      alert("いいね処理に失敗しました。もう一度試してね。");
     }
   };
 
