@@ -814,8 +814,7 @@ export default function UserProfilePage() {
     outerBorder?: string;
   }) => {
     const frame = getAvatarFrame(profile);
-    const framePadding = frame ? Math.max(3, Math.round(size * 0.065)) : 0;
-    const innerSize = frame ? size - framePadding * 2 : size;
+    const framePadding = frame ? (size >= 90 ? 3 : 2) : 0;
 
     const avatarElement = (
       <div
@@ -830,7 +829,7 @@ export default function UserProfilePage() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          overflow: "hidden",
+          boxSizing: "border-box",
           flexShrink: 0,
         }}
         title={frame ? `${frame.name}（${frame.rarity}）` : undefined}
@@ -840,8 +839,8 @@ export default function UserProfilePage() {
             src={profile.avatar_url}
             alt="avatar"
             style={{
-              width: innerSize,
-              height: innerSize,
+              width: "100%",
+              height: "100%",
               borderRadius: "9999px",
               objectFit: "cover",
               display: "block",
@@ -850,8 +849,8 @@ export default function UserProfilePage() {
         ) : (
           <div
             style={{
-              width: innerSize,
-              height: innerSize,
+              width: "100%",
+              height: "100%",
               borderRadius: "9999px",
               background: theme.accent,
               display: "flex",
@@ -859,7 +858,7 @@ export default function UserProfilePage() {
               justifyContent: "center",
               color: "#ffffff",
               fontWeight: "bold",
-              fontSize: Math.max(14, Math.round(innerSize * 0.36)),
+              fontSize: Math.max(14, Math.round(size * 0.34)),
             }}
           >
             {fallbackName.slice(0, 1).toUpperCase()}
