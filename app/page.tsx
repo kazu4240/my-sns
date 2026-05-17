@@ -953,75 +953,59 @@ export default function Home() {
       return;
     }
 
-    const alreadyLiked = likedPostIds.includes(post.id);
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-    if (alreadyLiked) {
-      const { error: likeDeleteError } = await supabase
-        .from("likes")
-        .delete()
-        .eq("user_id", userId)
-        .eq("post_id", post.id);
+      const accessToken = session?.access_token;
 
-      if (likeDeleteError) {
-        alert("いいね解除失敗: " + likeDeleteError.message);
+      if (!accessToken) {
+        alert("ログイン情報が見つかりません");
         return;
       }
 
-      const nextLikes = Math.max(0, post.likes - 1);
-      const { error: postUpdateError } = await supabase
-        .from("posts")
-        .update({ likes: nextLikes })
-        .eq("id", post.id);
+      const response = await fetch("/api/posts/toggle-like", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ postId: post.id }),
+      });
 
-      if (postUpdateError) {
-        alert("投稿更新失敗: " + postUpdateError.message);
+      const result = await response.json();
+
+      if (!response.ok) {
+        alert(result.error || "いいね処理に失敗しました");
         return;
       }
 
-      setLikedPostIds((prev) => prev.filter((id) => id !== post.id));
+      if (result.liked) {
+        setLikedPostIds((prev) =>
+          prev.includes(post.id) ? prev : [...prev, post.id]
+        );
+
+        if (post.user_id) {
+          await createNotification({
+            user_id: post.user_id,
+            actor_user_id: userId,
+            type: "like",
+            post_id: post.id,
+          });
+        }
+      } else {
+        setLikedPostIds((prev) => prev.filter((id) => id !== post.id));
+      }
+
       setPosts((prev) =>
         prev.map((item) =>
-          item.id === post.id ? { ...item, likes: nextLikes } : item
+          item.id === post.id ? { ...item, likes: result.likes } : item
         )
       );
-      return;
-    }
-
-    const { error: likeInsertError } = await supabase.from("likes").insert({
-      user_id: userId,
-      post_id: post.id,
-    });
-
-    if (likeInsertError) {
-      alert("いいね失敗: " + likeInsertError.message);
-      return;
-    }
-
-    const nextLikes = post.likes + 1;
-    const { error: postUpdateError } = await supabase
-      .from("posts")
-      .update({ likes: nextLikes })
-      .eq("id", post.id);
-
-    if (postUpdateError) {
-      alert("投稿更新失敗: " + postUpdateError.message);
-      return;
-    }
-
-    setLikedPostIds((prev) => [...prev, post.id]);
-    setPosts((prev) =>
-      prev.map((item) =>
-        item.id === post.id ? { ...item, likes: nextLikes } : item
-      )
-    );
-
-    if (post.user_id) {
-      await createNotification({
-        user_id: post.user_id,
-        actor_user_id: userId,
-        type: "like",
-        post_id: post.id,
-      });
+    } catch (error) {
+      console.error(error);
+      alert("いいね処理に失敗しました");
     }
   };
 
