@@ -28,6 +28,16 @@ type Profile = {
   theme_text_color: string | null;
   theme_accent_color: string | null;
   ui_scale: string | null;
+  selected_avatar_frame_key: string | null;
+};
+
+type AvatarFrame = {
+  frame_key: string;
+  name: string;
+  rarity: string;
+  border_css: string;
+  glow_css: string | null;
+  sort_order: number;
 };
 
 type PageTab = "posts" | "videos" | "media";
@@ -38,13 +48,7 @@ const DEFAULT_TEXT = "#ffffff";
 const DEFAULT_ACCENT = "#1d9bf0";
 const DEFAULT_BORDER = "#2f3336";
 
-function ReplyIcon({
-  size,
-  color,
-}: {
-  size: number;
-  color: string;
-}) {
+function ReplyIcon({ size, color }: { size: number; color: string }) {
   return (
     <svg
       width={size}
@@ -123,13 +127,7 @@ function BookmarkIcon({
   );
 }
 
-function MoreIcon({
-  size,
-  color,
-}: {
-  size: number;
-  color: string;
-}) {
+function MoreIcon({ size, color }: { size: number; color: string }) {
   return (
     <svg
       width={size}
@@ -159,7 +157,9 @@ function isVideoUrl(url: string | null) {
 
 export default function UserProfilePage() {
   const params = useParams();
-  const userIdParam = Array.isArray(params.userId) ? params.userId[0] : params.userId;
+  const userIdParam = Array.isArray(params.userId)
+    ? params.userId[0]
+    : params.userId;
 
   const [loading, setLoading] = useState(true);
   const [pageTab, setPageTab] = useState<PageTab>("posts");
@@ -168,6 +168,10 @@ export default function UserProfilePage() {
   const [targetProfile, setTargetProfile] = useState<Profile | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
   const [profiles, setProfiles] = useState<Record<string, Profile>>({});
+  const [avatarFrameMap, setAvatarFrameMap] = useState<
+    Record<string, AvatarFrame>
+  >({});
+
   const [likedPostIds, setLikedPostIds] = useState<number[]>([]);
   const [bookmarkedPostIds, setBookmarkedPostIds] = useState<number[]>([]);
   const [followingUserIds, setFollowingUserIds] = useState<string[]>([]);
@@ -178,6 +182,7 @@ export default function UserProfilePage() {
 
   const theme = useMemo(() => {
     const textColor = targetProfile?.theme_text_color || DEFAULT_TEXT;
+
     return {
       background: targetProfile?.theme_background_color || DEFAULT_BACKGROUND,
       card: targetProfile?.theme_card_color || DEFAULT_CARD,
@@ -251,7 +256,9 @@ export default function UserProfilePage() {
 
     for (const post of posts) {
       if (post.parent_id !== null) {
-        if (!map[post.parent_id]) map[post.parent_id] = [];
+        if (!map[post.parent_id]) {
+          map[post.parent_id] = [];
+        }
         map[post.parent_id].push(post);
       }
     }
@@ -406,78 +413,117 @@ export default function UserProfilePage() {
     setFollowersCount(followers ?? 0);
   };
 
+  const fetchAvatarFrames = async () => {
+    const { data, error } = await supabase
+      .from("avatar_frames")
+      .select("*")
+      .order("sort_order", { ascending: true });
+
+    if (error) {
+      console.error(error);
+      setAvatarFrameMap({});
+      return;
+    }
+
+    const nextFrameMap: Record<string, AvatarFrame> = {};
+
+    for (const frame of (data ?? []) as AvatarFrame[]) {
+      nextFrameMap[frame.frame_key] = frame;
+    }
+
+    setAvatarFrameMap(nextFrameMap);
+  };
+
   const fetchPage = async () => {
     if (!userIdParam) return;
 
     setLoading(true);
 
-    const viewerId = await fetchCurrentUser();
-    await fetchFollowingIds(viewerId);
-    await fetchLikes(viewerId);
-    await fetchBookmarks(viewerId);
+    try {
+      const viewerId = await fetchCurrentUser();
+      await fetchAvatarFrames();
+      await fetchFollowingIds(viewerId);
+      await fetchLikes(viewerId);
+      await fetchBookmarks(viewerId);
 
-    const { data: profileData, error: profileError } = await supabase
-      .from("profiles")
-      .select(
-        "user_id, display_name, username, bio, avatar_url, header_url, theme_background_color, theme_card_color, theme_text_color, theme_accent_color, ui_scale"
-      )
-      .eq("user_id", userIdParam)
-      .maybeSingle();
-
-    if (profileError) {
-      console.error(profileError);
-      setLoading(false);
-      return;
-    }
-
-    const target = (profileData as Profile | null) ?? null;
-    setTargetProfile(target);
-
-    if (target?.user_id) {
-      await fetchFollowCounts(target.user_id);
-    }
-
-    const { data: postData, error: postError } = await supabase
-      .from("posts")
-      .select("*")
-      .eq("user_id", userIdParam)
-      .order("created_at", { ascending: false });
-
-    if (postError) {
-      console.error(postError);
-      setPosts([]);
-      setLoading(false);
-      return;
-    }
-
-    const loadedPosts = (postData ?? []) as Post[];
-    setPosts(loadedPosts);
-
-    const idSet = new Set<string>();
-    for (const post of loadedPosts) {
-      if (post.user_id) idSet.add(post.user_id);
-    }
-    if (target?.user_id) idSet.add(target.user_id);
-
-    const ids = Array.from(idSet);
-    if (ids.length > 0) {
-      const { data: profileList, error: profileListError } = await supabase
+      const { data: profileData, error: profileError } = await supabase
         .from("profiles")
         .select(
-          "user_id, display_name, username, bio, avatar_url, header_url, theme_background_color, theme_card_color, theme_text_color, theme_accent_color, ui_scale"
+          "user_id, display_name, username, bio, avatar_url, header_url, theme_background_color, theme_card_color, theme_text_color, theme_accent_color, ui_scale, selected_avatar_frame_key"
         )
-        .in("user_id", ids);
+        .eq("user_id", userIdParam)
+        .maybeSingle();
 
-      if (!profileListError) {
-        const map: Record<string, Profile> = {};
-        for (const item of profileList ?? []) {
-          map[item.user_id] = item;
-        }
-        setProfiles(map);
+      if (profileError) {
+        console.error(profileError);
+        setLoading(false);
+        return;
       }
-    }
 
-    setLoading(false);
+      const target = (profileData as Profile | null) ?? null;
+      setTargetProfile(target);
+
+      if (target?.user_id) {
+        await fetchFollowCounts(target.user_id);
+      }
+
+      const { data: postData, error: postError } = await supabase
+        .from("posts")
+        .select("*")
+        .eq("user_id", userIdParam)
+        .order("created_at", { ascending: false });
+
+      if (postError) {
+        console.error(postError);
+        setPosts([]);
+        setLoading(false);
+        return;
+      }
+
+      const loadedPosts = (postData ?? []) as Post[];
+      setPosts(loadedPosts);
+
+      const idSet = new Set<string>();
+      for (const post of loadedPosts) {
+        if (post.user_id) {
+          idSet.add(post.user_id);
+        }
+      }
+      if (target?.user_id) {
+        idSet.add(target.user_id);
+      }
+
+      const ids = Array.from(idSet);
+
+      if (ids.length > 0) {
+        const { data: profileList, error: profileListError } = await supabase
+          .from("profiles")
+          .select(
+            "user_id, display_name, username, bio, avatar_url, header_url, theme_background_color, theme_card_color, theme_text_color, theme_accent_color, ui_scale, selected_avatar_frame_key"
+          )
+          .in("user_id", ids);
+
+        if (profileListError) {
+          console.error(profileListError);
+          setProfiles({});
+        } else {
+          const map: Record<string, Profile> = {};
+          for (const item of (profileList ?? []) as Profile[]) {
+            map[item.user_id] = item;
+          }
+          setProfiles(map);
+        }
+      } else {
+        setProfiles({});
+      }
+    } catch (error) {
+      console.error(error);
+      setPosts([]);
+      setProfiles({});
+      setAvatarFrameMap({});
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -524,75 +570,59 @@ export default function UserProfilePage() {
       return;
     }
 
-    const alreadyLiked = likedPostIds.includes(post.id);
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-    if (alreadyLiked) {
-      const { error: likeDeleteError } = await supabase
-        .from("likes")
-        .delete()
-        .eq("user_id", currentUserId)
-        .eq("post_id", post.id);
+      const accessToken = session?.access_token;
 
-      if (likeDeleteError) {
-        alert("いいね解除失敗: " + likeDeleteError.message);
+      if (!accessToken) {
+        alert("ログイン情報が見つかりません");
         return;
       }
 
-      const nextLikes = Math.max(0, post.likes - 1);
-      const { error: postUpdateError } = await supabase
-        .from("posts")
-        .update({ likes: nextLikes })
-        .eq("id", post.id);
+      const response = await fetch("/api/posts/toggle-like", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ postId: post.id }),
+      });
 
-      if (postUpdateError) {
-        alert("投稿更新失敗: " + postUpdateError.message);
+      const result = await response.json();
+
+      if (!response.ok) {
+        alert(result.error || "いいね処理に失敗しました");
         return;
       }
 
-      setLikedPostIds((prev) => prev.filter((id) => id !== post.id));
+      if (result.liked) {
+        setLikedPostIds((prev) =>
+          prev.includes(post.id) ? prev : [...prev, post.id]
+        );
+
+        if (post.user_id) {
+          await createNotification({
+            user_id: post.user_id,
+            actor_user_id: currentUserId,
+            type: "like",
+            post_id: post.id,
+          });
+        }
+      } else {
+        setLikedPostIds((prev) => prev.filter((id) => id !== post.id));
+      }
+
       setPosts((prev) =>
         prev.map((item) =>
-          item.id === post.id ? { ...item, likes: nextLikes } : item
+          item.id === post.id ? { ...item, likes: result.likes } : item
         )
       );
-      return;
-    }
-
-    const { error: likeInsertError } = await supabase.from("likes").insert({
-      user_id: currentUserId,
-      post_id: post.id,
-    });
-
-    if (likeInsertError) {
-      alert("いいね失敗: " + likeInsertError.message);
-      return;
-    }
-
-    const nextLikes = post.likes + 1;
-    const { error: postUpdateError } = await supabase
-      .from("posts")
-      .update({ likes: nextLikes })
-      .eq("id", post.id);
-
-    if (postUpdateError) {
-      alert("投稿更新失敗: " + postUpdateError.message);
-      return;
-    }
-
-    setLikedPostIds((prev) => [...prev, post.id]);
-    setPosts((prev) =>
-      prev.map((item) =>
-        item.id === post.id ? { ...item, likes: nextLikes } : item
-      )
-    );
-
-    if (post.user_id) {
-      await createNotification({
-        user_id: post.user_id,
-        actor_user_id: currentUserId,
-        type: "like",
-        post_id: post.id,
-      });
+    } catch (error) {
+      console.error(error);
+      alert("いいね処理に失敗しました");
     }
   };
 
@@ -696,7 +726,9 @@ export default function UserProfilePage() {
       return;
     }
 
-    const ok = window.confirm("この投稿を削除する？");
+    const ok = window.confirm(
+      post.parent_id === null ? "この投稿を削除する？" : "この返信を削除する？"
+    );
     if (!ok) return;
 
     const { error } = await supabase.from("posts").delete().eq("id", post.id);
@@ -750,6 +782,11 @@ export default function UserProfilePage() {
     return null;
   };
 
+  const getAvatarFrame = (profile: Profile | null | undefined) => {
+    if (!profile?.selected_avatar_frame_key) return null;
+    return avatarFrameMap[profile.selected_avatar_frame_key] ?? null;
+  };
+
   const tabStyle = (tab: PageTab) => ({
     flex: 1,
     background: "transparent",
@@ -763,6 +800,90 @@ export default function UserProfilePage() {
     fontWeight: "bold" as const,
   });
 
+  const renderAvatar = ({
+    profile,
+    href,
+    size,
+    fallbackName,
+    outerBorder,
+  }: {
+    profile: Profile | null | undefined;
+    href?: string;
+    size: number;
+    fallbackName: string;
+    outerBorder?: string;
+  }) => {
+    const frame = getAvatarFrame(profile);
+    const framePadding = frame ? Math.max(3, Math.round(size * 0.065)) : 0;
+    const innerSize = frame ? size - framePadding * 2 : size;
+
+    const avatarElement = (
+      <div
+        style={{
+          width: size,
+          height: size,
+          borderRadius: "9999px",
+          padding: framePadding,
+          border: frame ? frame.border_css : outerBorder ?? "none",
+          boxShadow: frame?.glow_css ?? "none",
+          background: theme.background,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          overflow: "hidden",
+          flexShrink: 0,
+        }}
+        title={frame ? `${frame.name}（${frame.rarity}）` : undefined}
+      >
+        {profile?.avatar_url ? (
+          <img
+            src={profile.avatar_url}
+            alt="avatar"
+            style={{
+              width: innerSize,
+              height: innerSize,
+              borderRadius: "9999px",
+              objectFit: "cover",
+              display: "block",
+            }}
+          />
+        ) : (
+          <div
+            style={{
+              width: innerSize,
+              height: innerSize,
+              borderRadius: "9999px",
+              background: theme.accent,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "#ffffff",
+              fontWeight: "bold",
+              fontSize: Math.max(14, Math.round(innerSize * 0.36)),
+            }}
+          >
+            {fallbackName.slice(0, 1).toUpperCase()}
+          </div>
+        )}
+      </div>
+    );
+
+    if (!href) return avatarElement;
+
+    return (
+      <Link
+        href={href}
+        style={{
+          display: "block",
+          flexShrink: 0,
+          textDecoration: "none",
+        }}
+      >
+        {avatarElement}
+      </Link>
+    );
+  };
+
   const renderPostCard = (post: Post, isReply = false) => {
     const isOwner = !!currentUserId && post.user_id === currentUserId;
     const replies = repliesByParent[post.id] ?? [];
@@ -770,6 +891,7 @@ export default function UserProfilePage() {
     const isBookmarked = bookmarkedPostIds.includes(post.id);
     const isLiked = likedPostIds.includes(post.id);
     const isMenuOpen = openMenuPostId === post.id;
+    const postProfile = post.user_id ? profiles[post.user_id] : null;
 
     return (
       <article
@@ -782,41 +904,12 @@ export default function UserProfilePage() {
         }}
       >
         {!isReply &&
-          (getAvatarUrl(post) ? (
-            <Link href={profileHref} style={{ flexShrink: 0 }}>
-              <img
-                src={getAvatarUrl(post)!}
-                alt="avatar"
-                style={{
-                  width: uiScale.avatar,
-                  height: uiScale.avatar,
-                  borderRadius: "9999px",
-                  objectFit: "cover",
-                  display: "block",
-                }}
-              />
-            </Link>
-          ) : (
-            <Link
-              href={profileHref}
-              style={{
-                width: uiScale.avatar,
-                height: uiScale.avatar,
-                borderRadius: "9999px",
-                background: theme.accent,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontWeight: "bold",
-                flexShrink: 0,
-                color: "#ffffff",
-                textDecoration: "none",
-                fontSize: uiScale.postText,
-              }}
-            >
-              {getDisplayName(post).slice(0, 1).toUpperCase()}
-            </Link>
-          ))}
+          renderAvatar({
+            profile: postProfile,
+            href: profileHref,
+            size: uiScale.avatar,
+            fallbackName: getDisplayName(post),
+          })}
 
         <div style={{ flex: 1, minWidth: 0 }}>
           <div
@@ -872,7 +965,9 @@ export default function UserProfilePage() {
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  setOpenMenuPostId((prev) => (prev === post.id ? null : post.id));
+                  setOpenMenuPostId((prev) =>
+                    prev === post.id ? null : post.id
+                  );
                 }}
                 style={{
                   background: "transparent",
@@ -912,7 +1007,7 @@ export default function UserProfilePage() {
                         color: "#ff6b6b",
                       }}
                     >
-                      削除
+                      {post.parent_id === null ? "削除" : "返信を削除"}
                     </button>
                   ) : (
                     <Link
@@ -1073,7 +1168,9 @@ export default function UserProfilePage() {
     );
   };
 
-  const isOwnProfile = currentUserId && targetProfile?.user_id === currentUserId;
+  const isOwnProfile =
+    !!currentUserId && !!targetProfile && targetProfile.user_id === currentUserId;
+
   const isFollowing =
     !!targetProfile && followingUserIds.includes(targetProfile.user_id);
 
@@ -1087,7 +1184,8 @@ export default function UserProfilePage() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          fontFamily: "sans-serif",
+          fontFamily:
+            'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
         }}
       >
         読み込み中...
@@ -1105,13 +1203,17 @@ export default function UserProfilePage() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          fontFamily: "sans-serif",
+          fontFamily:
+            'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
         }}
       >
         ユーザーが見つかりません
       </main>
     );
   }
+
+  const targetName =
+    targetProfile.display_name || targetProfile.username || "ユーザー";
 
   return (
     <main
@@ -1167,8 +1269,9 @@ export default function UserProfilePage() {
                 lineHeight: 1.2,
               }}
             >
-              {targetProfile.display_name || targetProfile.username || "ユーザー"}
+              {targetName}
             </div>
+
             <div
               style={{
                 color: theme.muted,
@@ -1214,110 +1317,73 @@ export default function UserProfilePage() {
                 gap: "12px",
               }}
             >
+              {renderAvatar({
+                profile: targetProfile,
+                size: uiScale.heroAvatar,
+                fallbackName: targetName,
+                outerBorder: `4px solid ${theme.background}`,
+              })}
+
               <div
                 style={{
-                  width: uiScale.heroAvatar,
-                  height: uiScale.heroAvatar,
-                  borderRadius: "9999px",
-                  overflow: "hidden",
-                  border: `4px solid ${theme.background}`,
-                  background: theme.card,
                   display: "flex",
+                  gap: "8px",
+                  flexWrap: "wrap",
+                  justifyContent: "flex-end",
                   alignItems: "center",
-                  justifyContent: "center",
-                  fontWeight: "bold",
-                  fontSize: "28px",
-                  flexShrink: 0,
                 }}
               >
-                {targetProfile.avatar_url ? (
-                  <img
-                    src={targetProfile.avatar_url}
-                    alt="avatar"
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                      display: "block",
-                    }}
-                  />
-                ) : (
-                  (targetProfile.display_name || "U").slice(0, 1).toUpperCase()
-                )}
-              </div>
-
-              {!isOwnProfile && (
-                <div
-                  style={{
-                    display: "flex",
-                    gap: "10px",
-                    alignItems: "center",
-                  }}
-                >
+                {isOwnProfile ? (
                   <Link
-                    href={`/dm/${targetProfile.user_id}`}
+                    href="/profile"
                     style={{
-                      background: "transparent",
-                      color: theme.text,
-                      border: `1px solid ${theme.border}`,
-                      padding: "10px 16px",
+                      background: theme.text,
+                      color: theme.background,
+                      padding: "10px 15px",
                       borderRadius: "9999px",
-                      fontWeight: "bold",
-                      fontSize: `${uiScale.actionText}px`,
                       textDecoration: "none",
+                      fontWeight: 800,
+                      fontSize: `${uiScale.actionText}px`,
                     }}
                   >
-                    DM
+                    プロフィール編集
                   </Link>
-
+                ) : (
                   <button
                     onClick={handleFollowToggle}
-                    disabled={followLoading}
+                    disabled={!currentUserId || followLoading}
                     style={{
-                      background: isFollowing ? "transparent" : theme.accent,
-                      color: "#ffffff",
+                      background: isFollowing ? "transparent" : theme.text,
+                      color: isFollowing ? theme.text : theme.background,
                       border: isFollowing ? `1px solid ${theme.border}` : "none",
-                      padding: "10px 18px",
+                      padding: "10px 16px",
                       borderRadius: "9999px",
-                      fontWeight: "bold",
+                      fontWeight: 800,
                       fontSize: `${uiScale.actionText}px`,
-                      cursor: followLoading ? "not-allowed" : "pointer",
+                      cursor:
+                        !currentUserId || followLoading ? "not-allowed" : "pointer",
                     }}
                   >
-                    {followLoading ? "処理中..." : isFollowing ? "フォロー中" : "フォロー"}
+                    {followLoading
+                      ? "処理中..."
+                      : isFollowing
+                      ? "フォロー中"
+                      : "フォロー"}
                   </button>
-                </div>
-              )}
-
-              {isOwnProfile && (
-                <Link
-                  href="/profile"
-                  style={{
-                    background: theme.accent,
-                    color: "#ffffff",
-                    textDecoration: "none",
-                    padding: "10px 18px",
-                    borderRadius: "9999px",
-                    fontWeight: "bold",
-                    fontSize: `${uiScale.actionText}px`,
-                  }}
-                >
-                  編集
-                </Link>
-              )}
+                )}
+              </div>
             </div>
 
-            <div style={{ marginTop: "14px" }}>
-              <div
+            <div style={{ marginTop: "12px" }}>
+              <h1
                 style={{
+                  margin: 0,
                   fontSize: `${uiScale.headerTitle}px`,
-                  fontWeight: 800,
                   lineHeight: 1.2,
-                  marginBottom: "4px",
                 }}
               >
-                {targetProfile.display_name || "ユーザー"}
-              </div>
+                {targetName}
+              </h1>
 
               <div
                 style={{
@@ -1386,9 +1452,11 @@ export default function UserProfilePage() {
           <button onClick={() => setPageTab("posts")} style={tabStyle("posts")}>
             投稿
           </button>
+
           <button onClick={() => setPageTab("videos")} style={tabStyle("videos")}>
             動画
           </button>
+
           <button onClick={() => setPageTab("media")} style={tabStyle("media")}>
             画像
           </button>
