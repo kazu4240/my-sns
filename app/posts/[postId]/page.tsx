@@ -22,6 +22,16 @@ type Profile = {
   username: string | null;
   bio: string | null;
   avatar_url: string | null;
+  selected_avatar_frame_key: string | null;
+};
+
+type AvatarFrame = {
+  frame_key: string;
+  name: string;
+  rarity: string;
+  border_css: string;
+  glow_css: string | null;
+  sort_order: number | null;
 };
 
 type NotificationInsert = {
@@ -145,6 +155,7 @@ export default function PostDetailPage({
   const [post, setPost] = useState<Post | null>(null);
   const [replies, setReplies] = useState<Post[]>([]);
   const [profiles, setProfiles] = useState<Record<string, Profile>>({});
+  const [avatarFrames, setAvatarFrames] = useState<Record<string, AvatarFrame>>({});
   const [errorMessage, setErrorMessage] = useState("");
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -174,6 +185,7 @@ export default function PostDetailPage({
         setPost(null);
         setReplies([]);
         setProfiles({});
+        setAvatarFrames({});
         setLoading(false);
         return;
       }
@@ -203,6 +215,7 @@ export default function PostDetailPage({
         setPost(null);
         setReplies([]);
         setProfiles({});
+        setAvatarFrames({});
         setLoading(false);
         return;
       }
@@ -222,6 +235,24 @@ export default function PostDetailPage({
 
       const replyPosts = (repliesData ?? []) as Post[];
       setReplies(replyPosts);
+
+      const { data: frameData, error: frameError } = await supabase
+        .from("avatar_frames")
+        .select("frame_key, name, rarity, border_css, glow_css, sort_order")
+        .order("sort_order", { ascending: true });
+
+      if (frameError) {
+        console.error(frameError);
+        setAvatarFrames({});
+      } else {
+        const frameMap: Record<string, AvatarFrame> = {};
+
+        for (const frame of frameData ?? []) {
+          frameMap[frame.frame_key] = frame as AvatarFrame;
+        }
+
+        setAvatarFrames(frameMap);
+      }
 
       if (userId) {
         const targetIds = [mainPost.id, ...replyPosts.map((item) => item.id)];
@@ -274,13 +305,14 @@ export default function PostDetailPage({
 
       if (userIds.length === 0) {
         setProfiles({});
+        setAvatarFrames({});
         setLoading(false);
         return;
       }
 
       const { data: profileData, error: profileError } = await supabase
         .from("profiles")
-        .select("user_id, display_name, username, bio, avatar_url")
+        .select("user_id, display_name, username, bio, avatar_url, selected_avatar_frame_key")
         .in("user_id", userIds);
 
       if (profileError) {
@@ -301,6 +333,7 @@ export default function PostDetailPage({
       setPost(null);
       setReplies([]);
       setProfiles({});
+      setAvatarFrames({});
       setLikedPostIds([]);
       setBookmarkedPostIds([]);
     } finally {
@@ -377,6 +410,80 @@ export default function PostDetailPage({
     return null;
   };
 
+  const getAvatarFrame = (profileUserId: string | null) => {
+    if (!profileUserId) return null;
+
+    const frameKey = profiles[profileUserId]?.selected_avatar_frame_key;
+    if (!frameKey) return null;
+
+    return avatarFrames[frameKey] ?? null;
+  };
+
+  const renderAvatar = ({
+    href,
+    userIdForFrame,
+    avatarUrl,
+    fallbackText,
+  }: {
+    href: string;
+    userIdForFrame: string | null;
+    avatarUrl: string | null;
+    fallbackText: string;
+  }) => {
+    const frame = getAvatarFrame(userIdForFrame);
+
+    return (
+      <Link
+        href={href}
+        style={{
+          width: "48px",
+          height: "48px",
+          borderRadius: "9999px",
+          padding: frame ? "3px" : 0,
+          border: frame?.border_css ?? "none",
+          boxShadow: frame?.glow_css ?? "none",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+          textDecoration: "none",
+          boxSizing: "border-box",
+        }}
+      >
+        {avatarUrl ? (
+          <img
+            src={avatarUrl}
+            alt="avatar"
+            style={{
+              width: "100%",
+              height: "100%",
+              borderRadius: "9999px",
+              objectFit: "cover",
+              display: "block",
+            }}
+          />
+        ) : (
+          <div
+            style={{
+              width: "100%",
+              height: "100%",
+              borderRadius: "9999px",
+              background: DEFAULT_ACCENT,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontWeight: "bold",
+              color: "#ffffff",
+              fontSize: "18px",
+            }}
+          >
+            {fallbackText.slice(0, 1).toUpperCase()}
+          </div>
+        )}
+      </Link>
+    );
+  };
+
   const replacePostInState = (postIdValue: number, nextLikes: number) => {
     setPost((prev) =>
       prev && prev.id === postIdValue ? { ...prev, likes: nextLikes } : prev
@@ -395,69 +502,80 @@ export default function PostDetailPage({
       return;
     }
 
-    const alreadyLiked = likedPostIds.includes(item.id);
+    const wasLiked = likedPostIds.includes(item.id);
+    const previousLikes = item.likes;
+    const nextOptimisticLikes = wasLiked
+      ? Math.max(0, previousLikes - 1)
+      : previousLikes + 1;
 
-    if (alreadyLiked) {
-      const { error: likeDeleteError } = await supabase
-        .from("likes")
-        .delete()
-        .eq("user_id", currentUserId)
-        .eq("post_id", item.id);
-
-      if (likeDeleteError) {
-        alert("いいね解除失敗: " + likeDeleteError.message);
-        return;
-      }
-
-      const nextLikes = Math.max(0, item.likes - 1);
-
-      const { error: postUpdateError } = await supabase
-        .from("posts")
-        .update({ likes: nextLikes })
-        .eq("id", item.id);
-
-      if (postUpdateError) {
-        alert("投稿更新失敗: " + postUpdateError.message);
-        return;
-      }
-
+    if (wasLiked) {
       setLikedPostIds((prev) => prev.filter((id) => id !== item.id));
-      replacePostInState(item.id, nextLikes);
-      return;
+    } else {
+      setLikedPostIds((prev) =>
+        prev.includes(item.id) ? prev : [...prev, item.id]
+      );
     }
 
-    const { error: likeInsertError } = await supabase.from("likes").insert({
-      user_id: currentUserId,
-      post_id: item.id,
-    });
+    replacePostInState(item.id, nextOptimisticLikes);
 
-    if (likeInsertError) {
-      alert("いいね失敗: " + likeInsertError.message);
-      return;
-    }
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-    const nextLikes = item.likes + 1;
+      const accessToken = session?.access_token;
 
-    const { error: postUpdateError } = await supabase
-      .from("posts")
-      .update({ likes: nextLikes })
-      .eq("id", item.id);
+      if (!accessToken) {
+        throw new Error("ログイン情報が見つかりません");
+      }
 
-    if (postUpdateError) {
-      alert("投稿更新失敗: " + postUpdateError.message);
-      return;
-    }
-
-    setLikedPostIds((prev) => [...prev, item.id]);
-    replacePostInState(item.id, nextLikes);
-
-    if (item.user_id) {
-      await createNotification({
-        user_id: item.user_id,
-        actor_user_id: currentUserId,
-        type: "like",
-        post_id: item.id,
+      const response = await fetch("/api/posts/toggle-like", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ postId: item.id }),
       });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "いいね処理に失敗しました");
+      }
+
+      setLikedPostIds((prev) => {
+        if (result.liked) {
+          return prev.includes(item.id) ? prev : [...prev, item.id];
+        }
+
+        return prev.filter((id) => id !== item.id);
+      });
+
+      replacePostInState(item.id, result.likes);
+
+      if (result.liked && item.user_id && item.user_id !== currentUserId) {
+        createNotification({
+          user_id: item.user_id,
+          actor_user_id: currentUserId,
+          type: "like",
+          post_id: item.id,
+        });
+      }
+    } catch (error) {
+      console.error(error);
+
+      if (wasLiked) {
+        setLikedPostIds((prev) =>
+          prev.includes(item.id) ? prev : [...prev, item.id]
+        );
+      } else {
+        setLikedPostIds((prev) => prev.filter((id) => id !== item.id));
+      }
+
+      replacePostInState(item.id, previousLikes);
+
+      alert("いいね処理に失敗しました。もう一度試してね。");
     }
   };
 
@@ -675,42 +793,12 @@ export default function PostDetailPage({
           borderBottom: `1px solid ${DEFAULT_BORDER}`,
         }}
       >
-        {avatarUrl ? (
-          <Link href={profileHref} style={{ flexShrink: 0 }}>
-            <img
-              src={avatarUrl}
-              alt="avatar"
-              style={{
-                width: "48px",
-                height: "48px",
-                borderRadius: "9999px",
-                objectFit: "cover",
-                flexShrink: 0,
-                border: `1px solid ${DEFAULT_BORDER}`,
-                display: "block",
-              }}
-            />
-          </Link>
-        ) : (
-          <Link
-            href={profileHref}
-            style={{
-              width: "48px",
-              height: "48px",
-              borderRadius: "9999px",
-              background: DEFAULT_ACCENT,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontWeight: "bold",
-              flexShrink: 0,
-              color: "#ffffff",
-              textDecoration: "none",
-            }}
-          >
-            {getDisplayName(item).slice(0, 1).toUpperCase()}
-          </Link>
-        )}
+        {renderAvatar({
+          href: profileHref,
+          userIdForFrame: item.user_id,
+          avatarUrl,
+          fallbackText: getDisplayName(item),
+        })}
 
         <div style={{ flex: 1, minWidth: 0 }}>
           <div
