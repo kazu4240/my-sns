@@ -36,6 +36,16 @@ type Profile = {
   theme_text_color: string | null;
   theme_accent_color: string | null;
   ui_scale: string | null;
+  selected_avatar_frame_key: string | null;
+};
+
+type AvatarFrame = {
+  frame_key: string;
+  name: string;
+  rarity: string;
+  border_css: string;
+  glow_css: string | null;
+  sort_order: number;
 };
 
 type NotificationInsert = {
@@ -152,6 +162,7 @@ export default function BookmarksPage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [replies, setReplies] = useState<Post[]>([]);
   const [profiles, setProfiles] = useState<Record<string, Profile>>({});
+  const [avatarFrameMap, setAvatarFrameMap] = useState<Record<string, AvatarFrame>>({});
   const [bookmarkedPostIds, setBookmarkedPostIds] = useState<number[]>([]);
   const [likedPostIds, setLikedPostIds] = useState<number[]>([]);
   const [openMenuPostId, setOpenMenuPostId] = useState<number | null>(null);
@@ -266,6 +277,97 @@ export default function BookmarksPage() {
     flexShrink: 0,
   } as const;
 
+  const getAvatarFrame = (profile: Profile | null | undefined) => {
+    if (!profile?.selected_avatar_frame_key) return null;
+    return avatarFrameMap[profile.selected_avatar_frame_key] ?? null;
+  };
+
+  const renderAvatar = ({
+    profile,
+    href,
+    size,
+    fallbackName,
+  }: {
+    profile: Profile | null | undefined;
+    href?: string;
+    size: number;
+    fallbackName: string;
+  }) => {
+    const frame = getAvatarFrame(profile);
+    const framePadding = frame ? 2 : 0;
+    const innerSize = frame ? size - framePadding * 2 : size;
+
+    const avatarElement = (
+      <div
+        style={{
+          width: size,
+          height: size,
+          borderRadius: "9999px",
+          padding: framePadding,
+          border: frame ? frame.border_css : "none",
+          boxShadow: frame?.glow_css ?? "none",
+          background: currentTheme.background,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          boxSizing: "border-box",
+          flexShrink: 0,
+        }}
+        title={frame ? `${frame.name}（${frame.rarity}）` : undefined}
+      >
+        {profile?.avatar_url ? (
+          <img
+            src={profile.avatar_url}
+            alt="avatar"
+            style={{
+              width: innerSize,
+              height: innerSize,
+              borderRadius: "9999px",
+              objectFit: "cover",
+              display: "block",
+              boxSizing: "border-box",
+            }}
+          />
+        ) : (
+          <div
+            style={{
+              width: innerSize,
+              height: innerSize,
+              borderRadius: "9999px",
+              background: currentTheme.accent,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "#ffffff",
+              fontWeight: "bold",
+              fontSize: Math.max(14, Math.round(innerSize * 0.36)),
+              boxSizing: "border-box",
+            }}
+          >
+            {fallbackName.slice(0, 1).toUpperCase()}
+          </div>
+        )}
+      </div>
+    );
+
+    if (!href) return avatarElement;
+
+    return (
+      <Link
+        href={href}
+        style={{
+          display: "block",
+          width: size,
+          height: size,
+          flexShrink: 0,
+          textDecoration: "none",
+        }}
+      >
+        {avatarElement}
+      </Link>
+    );
+  };
+
   const createNotification = async ({
     user_id,
     actor_user_id,
@@ -306,6 +408,7 @@ export default function BookmarksPage() {
         setPosts([]);
         setReplies([]);
         setProfiles({});
+        setAvatarFrameMap({});
         setBookmarkedPostIds([]);
         setLikedPostIds([]);
         setLoading(false);
@@ -314,6 +417,22 @@ export default function BookmarksPage() {
 
       setCurrentUserId(user.id);
       setCurrentUserEmail(user.email ?? null);
+
+      const { data: frameData, error: frameError } = await supabase
+        .from("avatar_frames")
+        .select("*")
+        .order("sort_order", { ascending: true });
+
+      if (frameError) {
+        console.error(frameError);
+        setAvatarFrameMap({});
+      } else {
+        const nextFrameMap: Record<string, AvatarFrame> = {};
+        for (const frame of (frameData ?? []) as AvatarFrame[]) {
+          nextFrameMap[frame.frame_key] = frame;
+        }
+        setAvatarFrameMap(nextFrameMap);
+      }
 
       const { data: bookmarkData, error: bookmarkError } = await supabase
         .from("bookmarks")
@@ -349,7 +468,7 @@ export default function BookmarksPage() {
         const { data: myProfile } = await supabase
           .from("profiles")
           .select(
-            "user_id, display_name, username, bio, avatar_url, theme_background_color, theme_card_color, theme_text_color, theme_accent_color, ui_scale"
+            "user_id, display_name, username, bio, avatar_url, theme_background_color, theme_card_color, theme_text_color, theme_accent_color, ui_scale, selected_avatar_frame_key"
           )
           .eq("user_id", user.id)
           .maybeSingle();
@@ -382,6 +501,7 @@ export default function BookmarksPage() {
       setPosts(postsData);
 
       const postIds = postsData.map((post) => post.id);
+      let replyPosts: Post[] = [];
 
       if (postIds.length > 0) {
         const { data: replyData, error: replyError } = await supabase
@@ -394,7 +514,8 @@ export default function BookmarksPage() {
           console.error(replyError);
           setReplies([]);
         } else {
-          setReplies((replyData ?? []) as Post[]);
+          replyPosts = (replyData ?? []) as Post[];
+          setReplies(replyPosts);
         }
       } else {
         setReplies([]);
@@ -405,7 +526,7 @@ export default function BookmarksPage() {
           [
             user.id,
             ...postsData.map((post) => post.user_id).filter(Boolean),
-            ...replies.map((reply) => reply.user_id).filter(Boolean),
+            ...replyPosts.map((reply) => reply.user_id).filter(Boolean),
           ] as string[]
         )
       );
@@ -413,7 +534,7 @@ export default function BookmarksPage() {
       const { data: profileData, error: profileError } = await supabase
         .from("profiles")
         .select(
-          "user_id, display_name, username, bio, avatar_url, theme_background_color, theme_card_color, theme_text_color, theme_accent_color, ui_scale"
+          "user_id, display_name, username, bio, avatar_url, theme_background_color, theme_card_color, theme_text_color, theme_accent_color, ui_scale, selected_avatar_frame_key"
         )
         .in("user_id", userIds);
 
@@ -422,7 +543,7 @@ export default function BookmarksPage() {
         setProfiles({});
       } else {
         const profileMap: Record<string, Profile> = {};
-        for (const profile of profileData ?? []) {
+        for (const profile of (profileData ?? []) as Profile[]) {
           profileMap[profile.user_id] = profile;
         }
         setProfiles(profileMap);
@@ -433,6 +554,7 @@ export default function BookmarksPage() {
       setPosts([]);
       setReplies([]);
       setProfiles({});
+      setAvatarFrameMap({});
       setBookmarkedPostIds([]);
       setLikedPostIds([]);
     } finally {
@@ -465,6 +587,13 @@ export default function BookmarksPage() {
     });
   };
 
+  const getProfile = (post: Post) => {
+    if (post.user_id) {
+      return profiles[post.user_id] ?? null;
+    }
+    return null;
+  };
+
   const getDisplayName = (post: Post) => {
     if (post.user_id && profiles[post.user_id]?.display_name) {
       return profiles[post.user_id].display_name!;
@@ -480,13 +609,6 @@ export default function BookmarksPage() {
       return profiles[post.user_id].username!;
     }
     return "user";
-  };
-
-  const getAvatarUrl = (post: Post) => {
-    if (post.user_id && profiles[post.user_id]?.avatar_url) {
-      return profiles[post.user_id].avatar_url!;
-    }
-    return null;
   };
 
   const handleLike = async (post: Post) => {
@@ -510,12 +632,6 @@ export default function BookmarksPage() {
     }
 
     setPosts((prev) =>
-      prev.map((item) =>
-        item.id === post.id ? { ...item, likes: nextOptimisticLikes } : item
-      )
-    );
-
-    setReplies((prev) =>
       prev.map((item) =>
         item.id === post.id ? { ...item, likes: nextOptimisticLikes } : item
       )
@@ -561,12 +677,6 @@ export default function BookmarksPage() {
         )
       );
 
-      setReplies((prev) =>
-        prev.map((item) =>
-          item.id === post.id ? { ...item, likes: result.likes } : item
-        )
-      );
-
       if (result.liked && post.user_id && post.user_id !== currentUserId) {
         createNotification({
           user_id: post.user_id,
@@ -587,12 +697,6 @@ export default function BookmarksPage() {
       }
 
       setPosts((prev) =>
-        prev.map((item) =>
-          item.id === post.id ? { ...item, likes: previousLikes } : item
-        )
-      );
-
-      setReplies((prev) =>
         prev.map((item) =>
           item.id === post.id ? { ...item, likes: previousLikes } : item
         )
@@ -719,8 +823,8 @@ export default function BookmarksPage() {
   };
 
   const renderPostCard = (post: Post) => {
+    const profile = getProfile(post);
     const profileHref = post.user_id ? `/users/${post.user_id}` : "/profile";
-    const avatarUrl = getAvatarUrl(post);
     const isBookmarked = bookmarkedPostIds.includes(post.id);
     const isLiked = likedPostIds.includes(post.id);
     const repliesCount = repliesByParent[post.id]?.length ?? 0;
@@ -737,41 +841,12 @@ export default function BookmarksPage() {
           borderBottom: `1px solid ${currentTheme.border}`,
         }}
       >
-        {avatarUrl ? (
-          <Link href={profileHref} style={{ flexShrink: 0 }}>
-            <img
-              src={avatarUrl}
-              alt="avatar"
-              style={{
-                width: sizes.avatar,
-                height: sizes.avatar,
-                borderRadius: "9999px",
-                objectFit: "cover",
-                border: `1px solid ${currentTheme.border}`,
-                display: "block",
-              }}
-            />
-          </Link>
-        ) : (
-          <Link
-            href={profileHref}
-            style={{
-              width: sizes.avatar,
-              height: sizes.avatar,
-              borderRadius: "9999px",
-              background: currentTheme.accent,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontWeight: "bold",
-              color: "#ffffff",
-              textDecoration: "none",
-              flexShrink: 0,
-            }}
-          >
-            {getDisplayName(post).slice(0, 1).toUpperCase()}
-          </Link>
-        )}
+        {renderAvatar({
+          profile,
+          href: profileHref,
+          size: sizes.avatar,
+          fallbackName: getDisplayName(post),
+        })}
 
         <div style={{ flex: 1, minWidth: 0 }}>
           <div
