@@ -1716,42 +1716,51 @@ export default function Home() {
             )}
           </div>
 
-          <p
+          <Link
+            href={`/posts/${post.id}`}
             style={{
-              fontSize: isReply ? uiScale.replyText : uiScale.postText,
-              lineHeight: 1.75,
-              whiteSpace: "pre-wrap",
-              margin: 0,
-              marginBottom: post.image_url ? "12px" : "10px",
+              display: "block",
               color: currentTheme.text,
-              wordBreak: "break-word",
+              textDecoration: "none",
             }}
           >
-            {post.content}
-          </p>
-
-          {post.image_url && (
-            <div
+            <p
               style={{
-                marginBottom: "12px",
-                border: `1px solid ${currentTheme.border}`,
-                borderRadius: "16px",
-                overflow: "hidden",
-                background: currentTheme.background,
+                fontSize: isReply ? uiScale.replyText : uiScale.postText,
+                lineHeight: 1.75,
+                whiteSpace: "pre-wrap",
+                margin: 0,
+                marginBottom: post.image_url ? "12px" : "10px",
+                color: currentTheme.text,
+                wordBreak: "break-word",
               }}
             >
-              <img
-                src={post.image_url}
-                alt="post image"
+              {post.content}
+            </p>
+
+            {post.image_url && (
+              <div
                 style={{
-                  width: "100%",
-                  maxHeight: "420px",
-                  objectFit: "cover",
-                  display: "block",
+                  marginBottom: "12px",
+                  border: `1px solid ${currentTheme.border}`,
+                  borderRadius: "16px",
+                  overflow: "hidden",
+                  background: currentTheme.background,
                 }}
-              />
-            </div>
-          )}
+              >
+                <img
+                  src={post.image_url}
+                  alt="post image"
+                  style={{
+                    width: "100%",
+                    maxHeight: "420px",
+                    objectFit: "cover",
+                    display: "block",
+                  }}
+                />
+              </div>
+            )}
+          </Link>
 
           <div
             style={{
