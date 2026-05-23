@@ -10,11 +10,21 @@ type Profile = {
   username: string | null;
   bio: string | null;
   avatar_url: string | null;
+  selected_avatar_frame_key: string | null;
   theme_background_color: string | null;
   theme_card_color: string | null;
   theme_text_color: string | null;
   theme_accent_color: string | null;
   ui_scale: string | null;
+};
+
+type AvatarFrame = {
+  frame_key: string;
+  name: string;
+  rarity: string;
+  border_css: string;
+  glow_css: string | null;
+  sort_order: number | null;
 };
 
 type DirectMessage = {
@@ -43,6 +53,7 @@ export default function DMPage() {
   const [searchText, setSearchText] = useState("");
   const [messages, setMessages] = useState<DirectMessage[]>([]);
   const [profiles, setProfiles] = useState<Record<string, Profile>>({});
+  const [avatarFrames, setAvatarFrames] = useState<Record<string, AvatarFrame>>({});
 
   const currentTheme = useMemo(() => {
     if (!userId || !profiles[userId]) {
@@ -84,10 +95,31 @@ export default function DMPage() {
     return currentId;
   };
 
+  const fetchAvatarFrames = async () => {
+    const { data, error } = await supabase
+      .from("avatar_frames")
+      .select("frame_key, name, rarity, border_css, glow_css, sort_order")
+      .order("sort_order", { ascending: true });
+
+    if (error) {
+      console.error("avatar_frames取得失敗:", error);
+      setAvatarFrames({});
+      return;
+    }
+
+    const frameMap: Record<string, AvatarFrame> = {};
+    for (const frame of data ?? []) {
+      frameMap[frame.frame_key] = frame as AvatarFrame;
+    }
+
+    setAvatarFrames(frameMap);
+  };
+
   const fetchDMList = async (currentUserId: string | null) => {
     if (!currentUserId) {
       setMessages([]);
       setProfiles({});
+      setAvatarFrames({});
       setLoading(false);
       return;
     }
@@ -95,6 +127,8 @@ export default function DMPage() {
     setLoading(true);
 
     try {
+      await fetchAvatarFrames();
+
       const [sentRes, receivedRes] = await Promise.all([
         supabase
           .from("direct_messages")
@@ -145,7 +179,7 @@ export default function DMPage() {
         const { data: profileData, error: profileError } = await supabase
           .from("profiles")
           .select(
-            "user_id, display_name, username, bio, avatar_url, theme_background_color, theme_card_color, theme_text_color, theme_accent_color, ui_scale"
+            "user_id, display_name, username, bio, avatar_url, selected_avatar_frame_key, theme_background_color, theme_card_color, theme_text_color, theme_accent_color, ui_scale"
           )
           .in("user_id", ids);
 
@@ -155,7 +189,7 @@ export default function DMPage() {
         } else {
           const nextProfiles: Record<string, Profile> = {};
           for (const profile of profileData ?? []) {
-            nextProfiles[profile.user_id] = profile;
+            nextProfiles[profile.user_id] = profile as Profile;
           }
           setProfiles(nextProfiles);
         }
@@ -166,6 +200,7 @@ export default function DMPage() {
       console.error("DM一覧取得失敗:", error);
       setMessages([]);
       setProfiles({});
+      setAvatarFrames({});
     } finally {
       setLoading(false);
     }
@@ -302,6 +337,68 @@ export default function DMPage() {
     return item.profile?.avatar_url || null;
   };
 
+  const getAvatarFrame = (profile: Profile | null) => {
+    const frameKey = profile?.selected_avatar_frame_key;
+    if (!frameKey) return null;
+
+    return avatarFrames[frameKey] ?? null;
+  };
+
+  const renderAvatar = (item: ConversationItem) => {
+    const frame = getAvatarFrame(item.profile);
+    const avatarUrl = getShownAvatar(item);
+    const shownName = getShownName(item);
+
+    return (
+      <div
+        style={{
+          width: "56px",
+          height: "56px",
+          borderRadius: "9999px",
+          padding: frame ? "3px" : 0,
+          border: frame?.border_css ?? "none",
+          boxShadow: frame?.glow_css ?? "none",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+          boxSizing: "border-box",
+        }}
+      >
+        {avatarUrl ? (
+          <img
+            src={avatarUrl}
+            alt="avatar"
+            style={{
+              width: "100%",
+              height: "100%",
+              borderRadius: "9999px",
+              objectFit: "cover",
+              display: "block",
+            }}
+          />
+        ) : (
+          <div
+            style={{
+              width: "100%",
+              height: "100%",
+              borderRadius: "9999px",
+              background: currentTheme.accent,
+              color: "#ffffff",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontWeight: 800,
+              fontSize: "20px",
+            }}
+          >
+            {shownName.slice(0, 1).toUpperCase()}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   if (loading) {
     return (
       <main
@@ -377,13 +474,35 @@ export default function DMPage() {
           >
             <div
               style={{
-                fontSize: "32px",
-                fontWeight: 800,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "12px",
                 marginBottom: "14px",
-                color: currentTheme.text,
               }}
             >
-              トーク
+              <div
+                style={{
+                  fontSize: "32px",
+                  fontWeight: 800,
+                  color: currentTheme.text,
+                }}
+              >
+                トーク
+              </div>
+
+              <Link
+                href="/"
+                style={{
+                  color: currentTheme.accent,
+                  fontSize: "14px",
+                  fontWeight: 800,
+                  textDecoration: "none",
+                  flexShrink: 0,
+                }}
+              >
+                ホーム
+              </Link>
             </div>
 
             <input
@@ -399,6 +518,7 @@ export default function DMPage() {
                 padding: "12px 16px",
                 outline: "none",
                 fontSize: "15px",
+                boxSizing: "border-box",
               }}
             />
           </div>
@@ -431,38 +551,7 @@ export default function DMPage() {
                   color: currentTheme.text,
                 }}
               >
-                {getShownAvatar(item) ? (
-                  <img
-                    src={getShownAvatar(item)!}
-                    alt="avatar"
-                    style={{
-                      width: "56px",
-                      height: "56px",
-                      borderRadius: "9999px",
-                      objectFit: "cover",
-                      flexShrink: 0,
-                      display: "block",
-                    }}
-                  />
-                ) : (
-                  <div
-                    style={{
-                      width: "56px",
-                      height: "56px",
-                      borderRadius: "9999px",
-                      background: currentTheme.accent,
-                      color: "#ffffff",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontWeight: 800,
-                      fontSize: "20px",
-                      flexShrink: 0,
-                    }}
-                  >
-                    {getShownName(item).slice(0, 1).toUpperCase()}
-                  </div>
-                )}
+                {renderAvatar(item)}
 
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div
@@ -522,6 +611,7 @@ export default function DMPage() {
                       whiteSpace: "nowrap",
                     }}
                   >
+                    {item.latestMessage.sender_user_id === userId ? "自分: " : ""}
                     {item.latestMessage.content || "メッセージ"}
                   </div>
                 </div>
